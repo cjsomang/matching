@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container my-3">
+    <h2>상대 3명까지 선택</h2>
+    <form id="select-form">
+        {% csrf_token %}
+        <div id="inputs">
+            <!-- 3개의 입력 그룹 -->
+            <div class="select-row mb-2">
+                <input name="name" class="form-control d-inline-block w-25" placeholder="이름">
+                <input name="age" class="form-control d-inline-block w-25" placeholder="나이">
+                <input name="org" class="form-control d-inline-block w-25" placeholder="소속">
+            </div>
+            <div class="select-row mb-2">
+                <input name="name" class="form-control d-inline-block w-25" placeholder="이름">
+                <input name="age" class="form-control d-inline-block w-25" placeholder="나이">
+                <input name="org" class="form-control d-inline-block w-25" placeholder="소속">
+            </div>
+            <div class="select-row mb-2">
+                <input name="name" class="form-control d-inline-block w-25" placeholder="이름">
+                <input name="age" class="form-control d-inline-block w-25" placeholder="나이">
+                <input name="org" class="form-control d-inline-block w-25" placeholder="소속">
+            </div>
+        </div>
+        <button id="submit-btn" class="btn btn-primary">제출</button>
+    </form>
+
+    <hr>
+    <h3>내 선택 보기</h3>
+    <ul id="my-selections"></ul>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+    (async () => {
+        const serverSecretB64 = "{{ server_secret_b64 }}";
+        const serverSecret = Uint8Array.from(atob(serverSecretB64), c => c.charCodeAt(0));
+        const form = document.getElementById('select-form');
+        const list = document.getElementById('my-selections');
+
+        // 로컬스토리지에서 복원
+        const loadLocal = () => {
+            const arr = JSON.parse(localStorage.getItem('myChoices') || '[]');
+            list.innerHTML = arr.map(o =>
+                `<li>${o.name}, ${o.age}, ${o.org}</li>`
+            ).join('');
+        };
+        loadLocal();
+
+        form.addEventListener('submit', async e => {
+            e.preventDefault();
+            // 3개 입력 그룹에서 데이터 수집
+            const rows = document.querySelectorAll('.select-row');
+            const choices = [];
+            for (let r of rows) {
+                const name = r.querySelector('[name=name]').value.trim();
+                const age = r.querySelector('[name=age]').value.trim();
+                const org = r.querySelector('[name=org]').value.trim();
+                if (name && age && org) {
+                    choices.push({ name, age, org });
+                }
+            }
+            if (choices.length < 1 || choices.length > 3) {
+                alert("1~3개 입력하세요.");
+                return;
+            }
+
+            // HMAC 태그 생성
+            const tags = [];
+            for (let o of choices) {
+                const json = JSON.stringify(o);
+                const key = await crypto.subtle.importKey(
+                    'raw', serverSecret, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+                );
+                const sigBuf = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(json));
+                const tag = btoa(String.fromCharCode(...new Uint8Array(sigBuf)));
+                tags.push(tag);
+            }
+
+            // 서버에 저장
+            const csrf = form.querySelector('[name=csrfmiddlewaretoken]').value;
+            const res = await fetch("{% url 'matching:select_api' %}", {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+                body: JSON.stringify({ tags })
+            });
+            if (res.ok) {
+                // 로컬저장 & UI 업데이트
+                localStorage.setItem('myChoices', JSON.stringify(choices));
+                loadLocal();
+                alert("선택이 저장되었습니다.");
+            } else {
+                alert("저장 실패");
+            }
+        });
+    })();
+</script>
+{% endblock %}

@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block content %}
+<div id="login-result" class="mt-3 text-danger"></div>
+<div class="container my-3">
+    <form id="login-form" method="post" action="{% url 'common:login' %}">
+        {% csrf_token %}
+        <!-- <input type="hidden" name="next" value="{{ next }}"> -->
+        {% include "form_errors.html" %}
+        <input type="hidden" name="anon_id" id="anon_id">
+        
+        <div class="mb-3">
+            <label for="user_id">사용자 ID</label>
+            <input type="text" class="form-control" name="user_id" id="user_id" placeholder="아이디">
+        </div>
+        <div class="mb-3">
+            <label for="password">비밀번호</label>
+            <input type="password" class="form-control" name="password" id="password" placeholder="비밀번호">
+        </div>
+        <button type="submit" class="btn btn-primary">로그인</button>
+    </form>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+    (async () => {
+        const serverSecretB64 = "{{ server_secret_b64 }}";
+        if (!serverSecretB64) return console.error("❌ server_secret_b64 누락");
+
+        const serverSecret = Uint8Array.from(atob(serverSecretB64), c => c.charCodeAt(0));
+        const form = document.getElementById('login-form');
+        const resultDiv = document.getElementById('login-result');
+
+        form.addEventListener('submit', async e => {
+            e.preventDefault();
+
+            const userId = form.elements.user_id.value.trim();
+            const password = form.elements.password.value;
+            if (!userId || !password) {
+                resultDiv.textContent = "아이디와 비밀번호를 입력하세요.";
+                return;
+            }
+
+            // anon_id 생성 (HMAC)
+            const hmacKey = await crypto.subtle.importKey(
+                'raw', serverSecret,
+                { name: 'HMAC', hash: 'SHA-256' },
+                false, ['sign']
+            );
+            const sig = await crypto.subtle.sign('HMAC', hmacKey, new TextEncoder().encode(userId));
+            const anonIdB64 = btoa(String.fromCharCode(...new Uint8Array(sig)));
+            document.getElementById('anon_id').value = anonIdB64;
+
+            const fd = new FormData(form);
+            const csrf = fd.get('csrfmiddlewaretoken');
+
+            try {
+                const res = await fetch(form.action, {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': csrf },
+                    body: fd
+                });
+
+                const contentType = res.headers.get('Content-Type');
+
+                if (contentType && contentType.includes('application/json')) {
+                    const data = await res.json();
+                    if (res.ok) {
+                        if (data.status === 'ok' && data.redirect) {
+                            window.location.href = data.redirect;
+                        } else {
+                            resultDiv.textContent = "알 수 없는 오류가 발생했습니다.";
+                        }
+                    } else {
+                        resultDiv.textContent = data.message;
+                    }
+                } else {
+                    resultDiv.textContent = "서버에서 예상치 못한 응답을 보냈습니다.";
+                }
+            } catch (err) {
+                console.error("❌ 네트워크 오류:", err);
+                resultDiv.textContent = "네트워크 오류가 발생했습니다.";
+            }
+        });
+    })();
+</script>
+{% endblock %}

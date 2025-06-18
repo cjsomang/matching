@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<h1>프로필 목록</h1>
+
+<div style="display:flex; gap:2rem;">
+    <div>
+        {% for p in profiles %}
+        <div style="border:1px solid #ccc; padding:1rem; margin-bottom:1rem;">
+            <strong>{{p.name}}</strong> ({{p.age}})<br>
+            {{p.affliation}}<br>
+            <button hx-post="{% url 'matching:select' p.pk %}"
+                    hx-target="#my-selection"
+                    hx-swap="innerHTML"
+                    class="{% if p.pk in selected %}selected{% endif %}">
+                    {% if p.pk in selected %}
+                    취소
+                    {% else %}
+                    선택
+                    {% endif %}
+            </button>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div id="my-selection">
+        {% include 'matching/_selection_list.html' %}
+    </div>
+</div>
+
+{% endblock %}

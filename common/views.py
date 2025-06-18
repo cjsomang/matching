@@ -1,0 +1,73 @@
+import json
+from django.contrib.auth import authenticate, login, logout
+from django.shortcuts import render, redirect
+from django.http import HttpResponse, JsonResponse
+# from common.forms import UserForm
+from matching.models import User
+
+def logout_view(request):
+    logout(request)
+    return redirect('index')
+
+def login_page(request):
+    if request.method == 'POST':
+        anon_id  = request.POST.get('anon_id')
+        password = request.POST.get('password')
+
+        if not all([anon_id, password]):
+            return HttpResponse("필수 필드 누락")
+        
+        user = authenticate(request, username=anon_id, password=password)
+        if user:
+            login(request, user)
+            # redirect_url = request.POST.get('next') or 'index'
+            # return JsonResponse({'status':'ok', 'redirect':redirect_url})
+            return JsonResponse({'status':'ok', 'redirect': '/'})
+        return JsonResponse({'status':'error','message':'아이디/비밀번호 불일치'}, status=401)
+        # return HttpResponse("아이디/비밀번호 불일치")
+    context = {
+        'server_secret_b64': User.SERVER_SECRET_B64,  # settings에서 base64로 제공
+        'next': request.GET.get('next', '/'),
+    }
+    return render(request, 'common/login.html', context)
+    
+
+def signup(request):
+    if request.method == "POST":
+        anon_id = request.POST.get('anon_id')
+        password = request.POST.get('password')
+        gender = request.POST.get('gender')
+        public_key = request.POST.get('public_key')
+        encrypted_name = request.POST.get('encrypted_name')
+        encrypted_age = request.POST.get('encrypted_age')
+        encrypted_org = request.POST.get('encrypted_org')
+        encrypted_phone = request.POST.get('encrypted_phone')
+
+        if not all([anon_id, password, gender, public_key,
+            encrypted_name, encrypted_age, encrypted_org, encrypted_phone]):
+            return HttpResponse("필수 필드 누락")
+        
+        # data = json.loads(request.body)
+        User.objects.create_user(
+            anon_id=anon_id,
+            password=password,
+            gender=gender,
+            public_key=public_key,
+            encrypted_name=encrypted_name,
+            encrypted_age=encrypted_age,
+            encrypted_org=encrypted_org,
+            encrypted_phone=encrypted_phone,
+        )
+
+        # username = form.cleaned_data.get('username')
+        # raw_password = form.cleaned_data.get('password1')
+        # user = authenticate(username=username, password=raw_password) # 사용자 인증
+        # login(request, user) # 로그인
+        return HttpResponse("<p>회원가입이 완료되었습니다.</p>")
+    # else:
+        # form = UserForm()
+    # return render(request, 'common/signup.html', {'form': form})
+    context = {
+        'server_secret_b64': User.SERVER_SECRET_B64,  # settings에서 base64로 제공
+    }
+    return render(request, 'common/signup.html', context)
