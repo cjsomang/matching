@@ -28,7 +28,7 @@ import {
     hmacSign,
     generateRsaKeyPair, exportRsaPublicKey,
     rsaEncrypt,
-    deriveAesKey, aesEncrypt
+    deriveAesKey, aesEncrypt, getAesKey
 } from "{% static 'crypto_utils.js' %}";
 (async () => {
     const serverSecretB64 = "{{ server_secret_b64 }}";

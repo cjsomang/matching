@@ -4,7 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, get_object_or_404
 from django_htmx.http import HttpResponseClientRedirect
 from django.http import JsonResponse, HttpResponseBadRequest
-from .models import User
+from .models import User, Selection, ContactGrant
 
 def index(request):
     return render(request, 'index.html')
@@ -22,21 +22,50 @@ def select_page(request):
 @login_required(login_url='common:login')
 def select_api(request):
     if request.method != 'POST':
-        return HttpResponseBadRequest("POST만 허용")
+        return JsonResponse({'message':'POST만 허용'}, status=405)
 
     data = json.loads(request.body)
     encrypted = data.get('encrypted_choices')
+    tags = data.get('tags', [])
+
     if encrypted is None:
-        return HttpResponseBadRequest("선택 데이터 누락")
+        return JsonResponse({'message':'선택 데이터 누락'}, status=400)
+    elif (not (1 <= len(tags) <= 3)):
+        return JsonResponse({'message':'1~3명 선택 가능'}, status=400)
+
     # AES‑GCM 암호문을 User.encrypted_choices에 저장
-    user = request.user
-    user.encrypted_choices = encrypted
-    user.save()
+    # user = request.user
+    # user.encrypted_choices = encrypted
+    # user.save()
+
+    # # 1) Selection 테이블 갱신
+    # Selection.objects.filter(from_user=request.user).delete()
+    # for tag in tags:
+    #     Selection.objects.create(from_user=request.user, tag=tag)
+
+    # # 2) 전체 choices AES‑GCM 암호문도 저장(선택 기록 복호화용)
+    # if encrypted is not None:
+    #     request.user.encrypted_choices = encrypted
+    #     request.user.save(update_fields=['encrypted_choices'])
+    try:
+        # 1) Selection 테이블 갱신
+        Selection.objects.filter(from_user=request.user).delete()
+        for tag in tags:
+            Selection.objects.create(from_user=request.user, tag=tag)
+
+        # 2) encrypted_choices 저장
+        request.user.encrypted_choices = encrypted
+        request.user.save(update_fields=['encrypted_choices'])
+
+    except Exception as e:
+        # 내부 오류일 때는 500과 함께 메시지를 남깁니다
+        return JsonResponse({'message': f'서버 오류: {e}'}, status=500)
+
     return JsonResponse({'status':'ok'})
 
 @login_required(login_url='common:login')
 def choices_api(request):
-    # 로그인된 사용자의 저장된 암호문을 반환
+    # 로그인된 사용자의 저장된 선택지 암호문을 반환
     return JsonResponse({'encrypted_choices': request.user.encrypted_choices})
 
 @login_required(login_url='common:login')
@@ -46,6 +75,7 @@ def results_page(request):
     return render(request, 'matching/results.html', {
         'server_secret_b64': User.SERVER_SECRET_B64,
         'user_salt': user.salt,
+        'anon_id': user.anon_id,
     })
 
 @login_required(login_url='common:login')
@@ -62,44 +92,68 @@ def results_api(request):
     my_tag = request.user.profile_tag
 
     # 나를 선택한 사람들
-    # selections = Selection.objects.filter(tag=my_tag).exclude(from_user=request.user)
-    # candidate_ids = selections.values_list('from_user__id', flat=True).distinct()
-    # matched = User.objects.filter(id__in=candidate_ids)
+    selections = Selection.objects.filter(tag=my_tag).exclude(from_user=request.user)
+    candidate_ids = selections.values_list('from_user__id', flat=True).distinct()
+    matched = User.objects.filter(id__in=candidate_ids)
     
     # 각 후보에 대해, 공개 프로필 정보(암호화된 상태)를 리스트로 구성합니다.
     results = []
-    # for candidate in matched:
-    #     # print(candidate.profile_tag)
-    #     results.append({
-    #         'candidate_id': candidate.anon_id,  # 암호화된 ID도 물론 단순 태그 형태로 제공 (여기서는 예시)
-    #         'encrypted_name': candidate.encrypted_name,
-    #         'encrypted_age': candidate.encrypted_age,
-    #         'encrypted_org': candidate.encrypted_org,
-    #         'profile_tag' : candidate.profile_tag,
-    #         # 후보 연락처 암호문은 별도로 제공되지 않음; 사용자 요청 시 공개 (아래 재암호화 프로세스 사용)
-    #     })
+    for candidate in matched:
+        # print(candidate.profile_tag)
+        results.append({
+            'candidate_id': candidate.anon_id,  # 암호화된 ID도 물론 단순 태그 형태로 제공 (여기서는 예시)
+            # 'encrypted_name': candidate.encrypted_name,
+            # 'encrypted_age': candidate.encrypted_age,
+            # 'encrypted_org': candidate.encrypted_org,
+            'profile_tag' : candidate.profile_tag,
+            'public_key': candidate.public_key,
+            # 후보 연락처 암호문은 별도로 제공되지 않음; 사용자 요청 시 공개 (아래 재암호화 프로세스 사용)
+        })
 
     return JsonResponse({'matches': results})
 
 @login_required(login_url='common:login')
-def get_contact_api(request):
-    # 반드시 여자 사용자 요청만 처리
-    if request.user.gender != 'F':
-        return JsonResponse({'error': '접근 불가'}, status=403)
-    candidate_id = request.GET.get('candidate_id')
-    if not candidate_id:
-        return JsonResponse({'error': '후보 정보 누락'}, status=400)
+def grant_contact_api(request):
+    if request.method != 'POST':
+        return HttpResponseBadRequest("POST만 허용")
+
+    data = json.loads(request.body)
+    to_user_id = data.get('to_user')
+    reenc_phone = data.get('reencrypted_phone')
+
+    if not to_user_id or not reenc_phone:
+        return JsonResponse({'error': '필수 데이터 누락'}, status=400)
+
     try:
-        candidate = User.objects.get(anon_id=candidate_id)
+        to_user = User.objects.get(anon_id=to_user_id)
     except User.DoesNotExist:
-        return JsonResponse({'error': '후보 없음'}, status=404)
-    
-    # 여기에 프록시 리암호화 로직 적용.
-    # 예를 들어, 후보가 자신의 연락처를 R_enc(key_material)을 통해 재암호화한 결과가 있다면,
-    # 그 자료를 그대로 반환하여 클라이언트에서 여성 사용자의 암호화 키로 복호화하게 합니다.
-    # 아래는 간단한 예시로, candidate.encrypted_phone 를 그대로 반환하는 구조입니다.
-    # 실제 구현에서는 절대로 평문으로 복호화하지 않습니다.
-    return JsonResponse({
-        'encrypted_phone': candidate.encrypted_phone
-        # 재암호화된 데이터가 여기 포함되어야 함
-    })
+        return JsonResponse({'error': '대상 없음'}, status=404)
+
+    # 중복 방지
+    ContactGrant.objects.update_or_create(
+        from_user=request.user, to_user=to_user,
+        defaults={'reencrypted_phone': reenc_phone}
+    )
+    return JsonResponse({'status': 'ok'})
+
+@login_required
+def get_granted_contact_api(request):
+    from_user_id = request.GET.get('from_user')
+    if not from_user_id:
+        return JsonResponse({'error': '상대 ID 누락'}, status=400)
+
+    try:
+        from_user = User.objects.get(anon_id=from_user_id)
+        grant = ContactGrant.objects.get(from_user=from_user, to_user=request.user)
+        return JsonResponse({'reencrypted_phone': grant.reencrypted_phone})
+    except (User.DoesNotExist, ContactGrant.DoesNotExist):
+        return JsonResponse({'reencrypted_phone': None})
+
+@login_required(login_url='common:login')
+def get_myinfo_api(request):
+    # 로그인된 사용자의 저장된 암호문을 반환
+    return JsonResponse({'encrypted_name': request.user.encrypted_name,
+                        'encrypted_age': request.user.encrypted_age,
+                        'encrypted_org': request.user.encrypted_org,
+                        'encrypted_phone': request.user.encrypted_phone,
+                        'encrypted_privkey': request.user.encrypted_privkey})

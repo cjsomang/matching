@@ -38,7 +38,7 @@ import {
     hmacSign,
     generateRsaKeyPair, exportRsaPublicKey,
     rsaEncrypt,
-    deriveAesKey, aesEncrypt, aesDecrypt
+    deriveAesKey, aesEncrypt, aesDecrypt, getAesKey
 } from "{% static 'crypto_utils.js' %}";
     (async () => {
         // 서버에서 전달받은 HMAC에 사용할 serverSecret (변경 없음)
@@ -56,21 +56,10 @@ import {
         const csrf = form.querySelector('[name=csrfmiddlewaretoken]').value;
 
         // 1) 로그인 시 세션에 저장된 AES 키 꺼내기 · 없으면 재로그인 유도
-        async function getAesKey() {
-            const allKeys = JSON.parse(sessionStorage.getItem('user_keys') || '{}');
-            const encryptedPriv = allKeys[anon_id];
-            if (!encryptedPriv) {
-                alert("세션 만료: 다시 로그인해주세요.");
-                window.location.href = "{% url 'common:login' %}";
-                throw new Error("AES 키 없음");
-            }
-            const raw = Uint8Array.from(atob(encryptedPriv), c => c.charCodeAt(0));
-            return crypto.subtle.importKey('raw', raw, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
-        }
 
         // 2) 저장된 encrypted_choices 불러와 복호화해 표시
-        async function loadChoices() {
-            const key = await getAesKey();
+        async function loadChoices(anon_id) {
+            const key = await getAesKey(anon_id);
             // let test = "안녕하세요";
             // let Encresult = await aesEncrypt(test, key);
             // let Decresult = await aesDecrypt(Encresult, key);
@@ -89,13 +78,13 @@ import {
             `<li>${o.name}, ${o.age}, ${o.org}</li>`
             ).join('');
         }
-        await loadChoices();
+        await loadChoices(anon_id);
 
         
         // 3) 폼 제출: 입력값 수집→암호화→서버 저장→화면 갱신
         form.addEventListener('submit', async e => {
             e.preventDefault();
-            const key = await getAesKey();
+            const key = await getAesKey(anon_id);
             // 3개 입력 그룹에서 데이터 수집
             const rows = document.querySelectorAll('.select-row');
             const choices = [];
@@ -112,17 +101,38 @@ import {
                 return;
             }
 
+            
+            const tags = await Promise.all(
+                choices.map(c => hmacSign(JSON.stringify(c), serverSecretB64))
+            );
+            // console.log("tags", tags);  // Base64 문자열 3개?
+
             const encrypted = await aesEncrypt(JSON.stringify(choices), key);
             const res = await fetch("{% url 'matching:select_api' %}", {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
-                body: JSON.stringify({ encrypted_choices: encrypted })
+                body: JSON.stringify({ tags: tags, encrypted_choices: encrypted })
             });
             if (!res.ok) {
-                alert("저장 실패");
+                // const text = await res.message();
+                // console.error("서버 응답 오류:", text);
+                // alert("저장 실패: " + text);
+                // return;
+
+                // 가능한 에러 포맷(json or text) 모두 시도해 봅니다.
+                let errMsg;
+                try {
+                    const obj = await res.json();
+                    errMsg = obj.message || JSON.stringify(obj);
+                } catch {
+                    errMsg = await res.text();
+                }
+                console.error("서버 응답 오류:", errMsg);
+                alert("저장 실패: " + errMsg);
+                return;
             }
             alert("선택이 저장되었습니다.");
-            await loadChoices();
+            await loadChoices(anon_id);
         });
     })();
 </script>

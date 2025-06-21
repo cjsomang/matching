@@ -52,6 +52,7 @@
         <input name="encrypted_org" id="encrypted_org" hidden>
         <input name="encrypted_phone" id="encrypted_phone" hidden>
         <input name="profile_tag" id="profile_tag" hidden>
+        <input name="salt" id="salt" hidden>
         <!-- <div class="mb-3">
             <label for="email">이메일</label>
             <input type="text" class="form-control" name="email" id="email"
@@ -67,7 +68,7 @@ import {
     hmacSign,
     generateRsaKeyPair, exportRsaPublicKey,
     rsaEncrypt,
-    deriveAesKey, aesEncrypt
+    deriveAesKey, aesEncrypt, aesDecrypt, getAesKey
 } from "{% static 'crypto_utils.js' %}";
 
 (async () => {
@@ -110,13 +111,19 @@ import {
         const aesKey = await deriveAesKey(pw, salt);
         const privBuf = await crypto.subtle.exportKey('pkcs8', privateKey);
         const privB64 = btoa(String.fromCharCode(...new Uint8Array(privBuf)));
-        document.getElementById('encrypted_privkey').value = await aesEncrypt(privB64, aesKey);
+        // console.log('priv before aes enc: ', privB64);
+        const afterenc = await aesEncrypt(privB64, aesKey);
+        document.getElementById('encrypted_privkey').value = afterenc;
+        // console.log('priv after aes enc: ', afterenc);
+        // const privB642 = await aesDecrypt(afterenc, aesKey); 
+        // console.log('priv after aes descrypt: ', privB642);
 
         // 4) 이름, 나이, 소속, 연락처 : AES-GCM 암호화
         document.getElementById('encrypted_name').value = await aesEncrypt(form.elements.name.value, aesKey);
         document.getElementById('encrypted_age').value = await aesEncrypt(form.elements.age.value, aesKey);
         document.getElementById('encrypted_org').value = await aesEncrypt(form.elements.org.value, aesKey);
         document.getElementById('encrypted_phone').value = await aesEncrypt(form.elements.phone.value, aesKey);
+        document.getElementById('salt').value = userSaltB64;
 
         // ④ HTMX로 AJAX 요청 (한 번만)
         const fd = new FormData(form);

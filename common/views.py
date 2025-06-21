@@ -2,6 +2,7 @@ import json
 from django.contrib.auth import authenticate, login, logout
 from django.shortcuts import render, redirect
 from django.http import HttpResponse, JsonResponse, HttpResponseBadRequest
+import os, base64
 # from common.forms import UserForm
 from matching.models import User
 
@@ -44,9 +45,10 @@ def signup(request):
         encrypted_org = request.POST.get('encrypted_org')
         encrypted_phone = request.POST.get('encrypted_phone')
         profile_tag = request.POST.get('profile_tag')
+        salt = request.POST.get('salt')
 
         if not all([anon_id, password, gender, public_key, encrypted_privkey,
-            encrypted_name, encrypted_age, encrypted_org, encrypted_phone, profile_tag]):
+            encrypted_name, encrypted_age, encrypted_org, encrypted_phone, profile_tag, salt]):
             # print(password)
             # print(gender)
             # print(public_key)
@@ -69,6 +71,7 @@ def signup(request):
             encrypted_org=encrypted_org,
             encrypted_phone=encrypted_phone,
             profile_tag=profile_tag,
+            salt=salt,
         )
 
         # username = form.cleaned_data.get('username')
@@ -79,7 +82,9 @@ def signup(request):
     # else:
         # form = UserForm()
     # return render(request, 'common/signup.html', {'form': form})
+    user_salt = base64.b64encode(os.urandom(16)).decode()
     context = {
         'server_secret_b64': User.SERVER_SECRET_B64,  # settings에서 base64로 제공
+        'user_salt': user_salt,
     }
     return render(request, 'common/signup.html', context)

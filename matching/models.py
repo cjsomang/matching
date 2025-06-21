@@ -1,17 +1,17 @@
 from django.conf import settings
 from django.db import models
 from django.contrib.auth.models import (AbstractBaseUser, PermissionsMixin, BaseUserManager)
-import os, base64
+
 
 
 class UserManager(BaseUserManager):
     def create_user(self, anon_id, password=None, gender=None,
                     public_key=None, encrypted_privkey=None, encrypted_name=None,
                     encrypted_age=None, encrypted_org=None,
-                    encrypted_phone=None, profile_tag=None, encrypted_choices=None, **extra_fields):
+                    encrypted_phone=None, profile_tag=None, encrypted_choices=None, salt=None):
         if not anon_id:
             raise ValueError("anon_id는 필수입니다")
-        extra_fields.setdefault('salt', base64.b64encode(os.urandom(16)).decode())
+        # extra_fields.setdefault('salt', base64.b64encode(os.urandom(16)).decode())
         user = self.model(
             anon_id=anon_id,
             gender=gender,
@@ -21,7 +21,8 @@ class UserManager(BaseUserManager):
             encrypted_age=encrypted_age,
             encrypted_org=encrypted_org,
             encrypted_phone=encrypted_phone,
-            profile_tag=profile_tag, **extra_fields
+            profile_tag=profile_tag,
+            salt=salt,
         )
         user.set_password(password)
         user.save()
@@ -54,3 +55,16 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     objects = UserManager()
 
+class Selection(models.Model):
+    from_user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='my_selections')
+    tag       = models.CharField(max_length=88)  # HMAC(server_secret, JSON(name,age,org))
+
+
+class ContactGrant(models.Model):
+    from_user = models.ForeignKey(User, related_name="granted_contacts", on_delete=models.CASCADE)
+    to_user = models.ForeignKey(User, related_name="received_contacts", on_delete=models.CASCADE)
+    reencrypted_phone = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('from_user', 'to_user')
