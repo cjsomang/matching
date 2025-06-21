@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 {% block content %}
 <div id="signup-result" class="mt-3 text-success"></div>
 <div class="container my-3">
@@ -46,79 +47,87 @@
         <input name="anon_id" id="anon_id" hidden>
         <input name="public_key" id="public_key" hidden>
         <input name="encrypted_name" id="encrypted_name" hidden>
+        <input name="encrypted_privkey" id="encrypted_privkey" hidden>
         <input name="encrypted_age" id="encrypted_age" hidden>
         <input name="encrypted_org" id="encrypted_org" hidden>
         <input name="encrypted_phone" id="encrypted_phone" hidden>
+        <input name="profile_tag" id="profile_tag" hidden>
         <!-- <div class="mb-3">
             <label for="email">이메일</label>
             <input type="text" class="form-control" name="email" id="email"
                     value="{{ form.email.value|default_if_none:'' }}">
         </div> -->
-        <button type="submit" class="btn btn-primary">생성하기</button>
+        <button type="submit" class="btn btn-primary">가입하기</button>
     </form>
 </div>
 {% endblock %}
 {% block script %}
-<script>
-    (async () => {
-        const serverSecretB64 = "{{ server_secret_b64 }}";
-        const serverSecret = Uint8Array.from(atob(serverSecretB64), c => c.charCodeAt(0));
+<script type="module">
+import {
+    hmacSign,
+    generateRsaKeyPair, exportRsaPublicKey,
+    rsaEncrypt,
+    deriveAesKey, aesEncrypt
+} from "{% static 'crypto_utils.js' %}";
 
-        // ① 페이지 로드 시 RSA 키 쌍 한 번만 생성
-        const kp = await crypto.subtle.generateKey(
-            {
-                name: 'RSA-OAEP', modulusLength: 2048,
-                publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-256'
-            },
-            true, ['encrypt', 'decrypt']
-        );
-        const spki = await crypto.subtle.exportKey('spki', kp.publicKey);
-        const b64pub = btoa(String.fromCharCode(...new Uint8Array(spki)));
-        document.getElementById('public_key').value =
-            `-----BEGIN PUBLIC KEY-----\n${b64pub.match(/.{1,64}/g).join('\n')}\n-----END PUBLIC KEY-----`;
+(async () => {
 
-        const form = document.getElementById('signup-form');
-        form.addEventListener('submit', async e => {
-            e.preventDefault();  // 기본 제출 막기
+    // 서버에서 전달받은 HMAC에 사용할 serverSecret (변경 없음)
+    const serverSecretB64 = "{{ server_secret_b64 }}";
+    const form = document.getElementById('signup-form');
 
-            // ② user_id → anon_id (HMAC)
-            const userId = form.elements.user_id.value;
-            const hmacKey = await crypto.subtle.importKey(
-                'raw', serverSecret, { name: 'HMAC', hash: 'SHA-256' },
-                false, ['sign']
-            );
-            const sig = await crypto.subtle.sign(
-                'HMAC', hmacKey,
-                new TextEncoder().encode(userId)
-            );
-            document.getElementById('anon_id').value =
-                btoa(String.fromCharCode(...new Uint8Array(sig)));
+    // 고정 salt 값
+    const userSaltB64 = "{{ user_salt }}";
+    const salt = Uint8Array.from(atob(userSaltB64), c => c.charCodeAt(0));
+    
+    form.addEventListener('submit', async e => {
+        e.preventDefault();  // 기본 제출 막기
 
-            // ③ 프로필 각 필드 암호화 함수
-            const enc = async (value) => {
-                const buf = await crypto.subtle.encrypt(
-                    { name: 'RSA-OAEP' },
-                    kp.publicKey,
-                    new TextEncoder().encode(value)
-                );
-                return btoa(String.fromCharCode(...new Uint8Array(buf)));
-            };
+        // 0) 비밀번호 읽기 (pw 변수 추가)
+        const pw = form.elements.password.value;
 
-            document.getElementById('encrypted_name').value = await enc(form.elements.name.value);
-            document.getElementById('encrypted_age').value = await enc(form.elements.age.value);
-            document.getElementById('encrypted_org').value = await enc(form.elements.org.value);
-            document.getElementById('encrypted_phone').value = await enc(form.elements.phone.value);
+        // 1) HMAC key 생성 (단방향)
 
-            // ④ HTMX로 AJAX 요청 (한 번만)
-            const fd = new FormData(form);
-            const csrf = fd.get('csrfmiddlewaretoken');
-            htmx.ajax('POST', form.action, {
-                headers: { 'X-CSRFToken': csrf },
-                values: Object.fromEntries(fd.entries()),
-                target: '#signup-result',
-                swap: 'innerHTML'
-            });
+
+        // 1-1) ID 암호화 using HMAC
+        const userId = form.elements.user_id.value;
+        const anonId = await hmacSign(userId,serverSecretB64);
+        document.getElementById('anon_id').value = anonId;
+
+        // 1-2) profile_tag 암호화 using HAMC
+        const profileJson = JSON.stringify({
+            name: form.elements.name.value,
+            age: form.elements.age.value,
+            org: form.elements.org.value
         });
-    })();
+        document.getElementById('profile_tag').value = await hmacSign(profileJson,serverSecretB64);
+
+        // 2) RSA 키 쌍 한 번만 생성(복호화용)
+        const { publicKey, privateKey } = await generateRsaKeyPair();
+        document.getElementById('public_key').value = await exportRsaPublicKey(publicKey);
+
+        // 3) PBKDF2 -> AES-GCM 키 생성 및 개인키 암호화
+        const aesKey = await deriveAesKey(pw, salt);
+        const privBuf = await crypto.subtle.exportKey('pkcs8', privateKey);
+        const privB64 = btoa(String.fromCharCode(...new Uint8Array(privBuf)));
+        document.getElementById('encrypted_privkey').value = await aesEncrypt(privB64, aesKey);
+
+        // 4) 이름, 나이, 소속, 연락처 : AES-GCM 암호화
+        document.getElementById('encrypted_name').value = await aesEncrypt(form.elements.name.value, aesKey);
+        document.getElementById('encrypted_age').value = await aesEncrypt(form.elements.age.value, aesKey);
+        document.getElementById('encrypted_org').value = await aesEncrypt(form.elements.org.value, aesKey);
+        document.getElementById('encrypted_phone').value = await aesEncrypt(form.elements.phone.value, aesKey);
+
+        // ④ HTMX로 AJAX 요청 (한 번만)
+        const fd = new FormData(form);
+        const csrf = fd.get('csrfmiddlewaretoken');
+        htmx.ajax('POST', form.action, {
+            headers: { 'X-CSRFToken': csrf },
+            values: Object.fromEntries(fd.entries()),
+            target: '#signup-result',
+            swap: 'innerHTML'
+        });
+    });
+})();
 </script>
 {% endblock %}

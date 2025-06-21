@@ -7,5 +7,8 @@ urlpatterns = [
     path('', views.index, name='index'),
     path('select/', views.select_page, name='select_page'),
     path('select/api/', views.select_api, name='select_api'),
-    # path('viewlist/', views.viewlist, name='viewlist'),
+    path('choices/api/', views.choices_api,  name='choices_api'),
+    path('result/', views.results_page, name='results_page'),
+    path('result/api', views.results_api, name='results_api'),
+    path('contact/api', views.get_contact_api, name='get_contact_api'),
 ]

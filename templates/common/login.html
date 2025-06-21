@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 {% block content %}
 <div id="login-result" class="mt-3 text-danger"></div>
 <div class="container my-3">
@@ -22,66 +23,83 @@
 {% endblock %}
 
 {% block script %}
-<script>
-    (async () => {
-        const serverSecretB64 = "{{ server_secret_b64 }}";
-        if (!serverSecretB64) return console.error("❌ server_secret_b64 누락");
+<script type="module">
+import {
+    hmacSign,
+    generateRsaKeyPair, exportRsaPublicKey,
+    rsaEncrypt,
+    deriveAesKey, aesEncrypt
+} from "{% static 'crypto_utils.js' %}";
+(async () => {
+    const serverSecretB64 = "{{ server_secret_b64 }}";
 
-        const serverSecret = Uint8Array.from(atob(serverSecretB64), c => c.charCodeAt(0));
-        const form = document.getElementById('login-form');
-        const resultDiv = document.getElementById('login-result');
+    const form = document.getElementById('login-form');
+    const resultDiv = document.getElementById('login-result');
 
-        form.addEventListener('submit', async e => {
-            e.preventDefault();
+    // 기존의 HMAC 등을 위한 로직은 그대로 유지합니다.
+    form.addEventListener('submit', async e => {
+        e.preventDefault();
 
-            const userId = form.elements.user_id.value.trim();
-            const password = form.elements.password.value;
-            if (!userId || !password) {
-                resultDiv.textContent = "아이디와 비밀번호를 입력하세요.";
-                return;
-            }
+        const userId = form.elements.user_id.value.trim();
+        const password = form.elements.password.value;
+        if (!userId || !password) {
+            resultDiv.textContent = "아이디와 비밀번호를 입력하세요.";
+            return;
+        }
 
-            // anon_id 생성 (HMAC)
-            const hmacKey = await crypto.subtle.importKey(
-                'raw', serverSecret,
-                { name: 'HMAC', hash: 'SHA-256' },
-                false, ['sign']
-            );
-            const sig = await crypto.subtle.sign('HMAC', hmacKey, new TextEncoder().encode(userId));
-            const anonIdB64 = btoa(String.fromCharCode(...new Uint8Array(sig)));
-            document.getElementById('anon_id').value = anonIdB64;
+        // anon_id 생성 (HMAC)
+        const anonId = await hmacSign(userId,serverSecretB64);
+        document.getElementById('anon_id').value = anonId;
 
-            const fd = new FormData(form);
-            const csrf = fd.get('csrfmiddlewaretoken');
+        
+        const fd = new FormData(form);
+        const csrf = fd.get('csrfmiddlewaretoken');
 
-            try {
-                const res = await fetch(form.action, {
-                    method: 'POST',
-                    headers: { 'X-CSRFToken': csrf },
-                    body: fd
-                });
+        try {
+            const res = await fetch(form.action, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrf },
+                body: fd
+            });
+            const contentType = res.headers.get('Content-Type');
+            if (contentType && contentType.includes('application/json')) {
+                const data = await res.json();
+                if (res.ok) {
+                    if (data.status === 'ok' && data.redirect) {
 
-                const contentType = res.headers.get('Content-Type');
+                        const userSaltB64 = data.user_salt;
+                        const salt = Uint8Array.from(atob(userSaltB64), c => c.charCodeAt(0));
 
-                if (contentType && contentType.includes('application/json')) {
-                    const data = await res.json();
-                    if (res.ok) {
-                        if (data.status === 'ok' && data.redirect) {
-                            window.location.href = data.redirect;
-                        } else {
-                            resultDiv.textContent = "알 수 없는 오류가 발생했습니다.";
-                        }
+                        // local storage에 user key 저장
+                        const aesKey = await deriveAesKey(password, salt);
+                        const rawKey = await crypto.subtle.exportKey('raw', aesKey);
+                        const aesKeyB64 = btoa(String.fromCharCode(...new Uint8Array(rawKey)));
+
+                        let allKeys = JSON.parse(sessionStorage.getItem('user_keys') || '{}');
+                        allKeys[anonId] = aesKeyB64;
+                        sessionStorage.setItem('user_keys', JSON.stringify(allKeys));
+
+                        // for salt debuging
+                        // const saltstring = btoa(String.fromCharCode(...new Uint8Array(salt)));
+                        // console.log('salt from server:', saltstring);
+                        // console.log('encoded AES key:', aesKeyB64);
+                        
+                        // 로그인 후 redirect
+                        window.location.href = data.redirect;
                     } else {
-                        resultDiv.textContent = data.message;
+                        resultDiv.textContent = "알 수 없는 오류가 발생했습니다.";
                     }
                 } else {
-                    resultDiv.textContent = "서버에서 예상치 못한 응답을 보냈습니다.";
+                    resultDiv.textContent = data.message;
                 }
-            } catch (err) {
-                console.error("❌ 네트워크 오류:", err);
-                resultDiv.textContent = "네트워크 오류가 발생했습니다.";
+            } else {
+                resultDiv.textContent = "서버에서 예상치 못한 응답을 보냈습니다.";
             }
-        });
-    })();
+        } catch (err) {
+            console.error("❌ 네트워크 오류:", err);
+            resultDiv.textContent = "네트워크 오류가 발생했습니다.";
+        }
+    });
+})();
 </script>
 {% endblock %}

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 {% block content %}
 <div class="container my-3">
     <h2>상대 3명까지 선택</h2>
@@ -8,18 +9,18 @@
             <!-- 3개의 입력 그룹 -->
             <div class="select-row mb-2">
                 <input name="name" class="form-control d-inline-block w-25" placeholder="이름">
-                <input name="age" class="form-control d-inline-block w-25" placeholder="나이">
-                <input name="org" class="form-control d-inline-block w-25" placeholder="소속">
+                <input name="age" class="form-control d-inline-block w-25" placeholder="또래">
+                <input name="org" class="form-control d-inline-block w-25" placeholder="마을">
             </div>
             <div class="select-row mb-2">
                 <input name="name" class="form-control d-inline-block w-25" placeholder="이름">
-                <input name="age" class="form-control d-inline-block w-25" placeholder="나이">
-                <input name="org" class="form-control d-inline-block w-25" placeholder="소속">
+                <input name="age" class="form-control d-inline-block w-25" placeholder="또래">
+                <input name="org" class="form-control d-inline-block w-25" placeholder="마을">
             </div>
             <div class="select-row mb-2">
                 <input name="name" class="form-control d-inline-block w-25" placeholder="이름">
-                <input name="age" class="form-control d-inline-block w-25" placeholder="나이">
-                <input name="org" class="form-control d-inline-block w-25" placeholder="소속">
+                <input name="age" class="form-control d-inline-block w-25" placeholder="또래">
+                <input name="org" class="form-control d-inline-block w-25" placeholder="마을">
             </div>
         </div>
         <button id="submit-btn" class="btn btn-primary">제출</button>
@@ -32,24 +33,69 @@
 {% endblock %}
 
 {% block script %}
-<script>
+<script type="module">
+import {
+    hmacSign,
+    generateRsaKeyPair, exportRsaPublicKey,
+    rsaEncrypt,
+    deriveAesKey, aesEncrypt, aesDecrypt
+} from "{% static 'crypto_utils.js' %}";
     (async () => {
+        // 서버에서 전달받은 HMAC에 사용할 serverSecret (변경 없음)
         const serverSecretB64 = "{{ server_secret_b64 }}";
-        const serverSecret = Uint8Array.from(atob(serverSecretB64), c => c.charCodeAt(0));
+        // const serverSecret = Uint8Array.from(atob(serverSecretB64), c => c.charCodeAt(0));
+
+        // 0) salt 값
+        // const userSaltB64 = "{{ user_salt }}";
+        // const salt = Uint8Array.from(atob(userSaltB64), c => c.charCodeAt(0));
+        const anon_id = "{{ anon_id }}";
+
         const form = document.getElementById('select-form');
         const list = document.getElementById('my-selections');
 
-        // 로컬스토리지에서 복원
-        const loadLocal = () => {
-            const arr = JSON.parse(localStorage.getItem('myChoices') || '[]');
-            list.innerHTML = arr.map(o =>
-                `<li>${o.name}, ${o.age}, ${o.org}</li>`
-            ).join('');
-        };
-        loadLocal();
+        const csrf = form.querySelector('[name=csrfmiddlewaretoken]').value;
 
+        // 1) 로그인 시 세션에 저장된 AES 키 꺼내기 · 없으면 재로그인 유도
+        async function getAesKey() {
+            const allKeys = JSON.parse(sessionStorage.getItem('user_keys') || '{}');
+            const encryptedPriv = allKeys[anon_id];
+            if (!encryptedPriv) {
+                alert("세션 만료: 다시 로그인해주세요.");
+                window.location.href = "{% url 'common:login' %}";
+                throw new Error("AES 키 없음");
+            }
+            const raw = Uint8Array.from(atob(encryptedPriv), c => c.charCodeAt(0));
+            return crypto.subtle.importKey('raw', raw, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
+        }
+
+        // 2) 저장된 encrypted_choices 불러와 복호화해 표시
+        async function loadChoices() {
+            const key = await getAesKey();
+            // let test = "안녕하세요";
+            // let Encresult = await aesEncrypt(test, key);
+            // let Decresult = await aesDecrypt(Encresult, key);
+            // console.log(test);
+            // console.log(Encresult);
+            // console.log(Decresult);
+            const res = await fetch("{% url 'matching:choices_api' %}");
+            if (!res.ok) return;
+            const { encrypted_choices } = await res.json();
+            if (!encrypted_choices) {
+            list.innerHTML = "<li class='text-muted'>선택한 결과가 없습니다.</li>";
+            return;
+            }
+            const plain = JSON.parse(await aesDecrypt(encrypted_choices, key));
+            list.innerHTML = plain.map(o =>
+            `<li>${o.name}, ${o.age}, ${o.org}</li>`
+            ).join('');
+        }
+        await loadChoices();
+
+        
+        // 3) 폼 제출: 입력값 수집→암호화→서버 저장→화면 갱신
         form.addEventListener('submit', async e => {
             e.preventDefault();
+            const key = await getAesKey();
             // 3개 입력 그룹에서 데이터 수집
             const rows = document.querySelectorAll('.select-row');
             const choices = [];
@@ -58,41 +104,25 @@
                 const age = r.querySelector('[name=age]').value.trim();
                 const org = r.querySelector('[name=org]').value.trim();
                 if (name && age && org) {
-                    choices.push({ name, age, org });
+                    choices.push({ name:name, age:age, org:org });
                 }
             }
             if (choices.length < 1 || choices.length > 3) {
-                alert("1~3개 입력하세요.");
+                alert("후보는 1~3명 입력하세요.");
                 return;
             }
 
-            // HMAC 태그 생성
-            const tags = [];
-            for (let o of choices) {
-                const json = JSON.stringify(o);
-                const key = await crypto.subtle.importKey(
-                    'raw', serverSecret, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
-                );
-                const sigBuf = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(json));
-                const tag = btoa(String.fromCharCode(...new Uint8Array(sigBuf)));
-                tags.push(tag);
-            }
-
-            // 서버에 저장
-            const csrf = form.querySelector('[name=csrfmiddlewaretoken]').value;
+            const encrypted = await aesEncrypt(JSON.stringify(choices), key);
             const res = await fetch("{% url 'matching:select_api' %}", {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
-                body: JSON.stringify({ tags })
+                body: JSON.stringify({ encrypted_choices: encrypted })
             });
-            if (res.ok) {
-                // 로컬저장 & UI 업데이트
-                localStorage.setItem('myChoices', JSON.stringify(choices));
-                loadLocal();
-                alert("선택이 저장되었습니다.");
-            } else {
+            if (!res.ok) {
                 alert("저장 실패");
             }
+            alert("선택이 저장되었습니다.");
+            await loadChoices();
         });
     })();
 </script>

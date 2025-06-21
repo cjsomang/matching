@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container my-3">
+    <h2>매칭 결과</h2>
+    <ul id="match-list">
+        <!-- 여기서 매칭된 후보의 공개 프로필 정보를 목록으로 표시합니다. -->
+    </ul>
+    <div id="contact-info" class="mt-3">
+        <!-- 여성이 후보를 선택하면 해당 후보의 연락처를 표시 -->
+    </div>
+    <div id="no-matches" class="text-muted"></div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+    (async () => {
+        // 로그인 시 sessionStorage에 저장한 암호화 키를 사용
+        async function getEncryptionKey() {
+            const keyB64 = sessionStorage.getItem('encryptionKey');
+            if (!keyB64) {
+                alert("암호화 키가 없습니다. 다시 로그인하세요.");
+                return null;
+            }
+            const rawKey = Uint8Array.from(atob(keyB64), c => c.charCodeAt(0));
+            return crypto.subtle.importKey(
+                'raw',
+                rawKey,
+                { name: 'AES-GCM' },
+                false,
+                ['encrypt', 'decrypt']
+            );
+        }
+        const encryptionKey = await getEncryptionKey();
+        if (!encryptionKey) return;
+
+        // HMAC(tag) 생성 함수 (server_secret)
+        async function computeHmac(msg, serverSecret) {
+            const hmacKey = await crypto.subtle.importKey(
+                'raw', serverSecret, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+            );
+            const sig = await crypto.subtle.sign('HMAC', hmacKey, new TextEncoder().encode(msg));
+            return btoa(String.fromCharCode(...new Uint8Array(sig)));
+        }
+
+        // 1) 서버가 준 매칭 리스트
+        const res = await fetch("{% url 'matching:results_api' %}");
+        const { matches } = await res.json();
+        if (!matches.length) {
+            document.getElementById('no-matches').textContent = "매칭된 상대가 없습니다.";
+            return;
+        }
+
+        // 2) 클라이언트에 저장된 내 평문 선택 복호화
+        const encChoices = localStorage.getItem('myChoices');
+        const plainChoices = JSON.parse(await decryptData(encChoices, encryptionKey));
+        // server_secret 준비 (base64 → Uint8Array)
+        const serverSecret = Uint8Array.from(atob("{{ server_secret_b64 }}"), c => c.charCodeAt(0));
+
+        // 3) 평문 각각으로 태그 생성 → 일치하는 서버 태그 찾아 표시
+        async function loadMatches() {
+            const res = await fetch("{% url 'matching:results_api' %}");
+            const { matches } = await res.json();
+            const serverSecret = Uint8Array.from(atob("{{ server_secret_b64 }}"), c => c.charCodeAt(0));
+
+            const key = await getEncryptionKey();
+            if (!key) return;
+
+            const plainChoices = JSON.parse(await decryptData(localStorage.getItem('myChoices'), key));
+
+            // match-list에 candidates 표시
+            const list = document.getElementById('match-list');
+            list.innerHTML = '';
+            for (let choice of plainChoices) {
+                const tag = await computeHmac(JSON.stringify(choice), serverSecret);
+                // 서버가 돌려준 matches 중 태그가 일치하는 후보 찾기
+                const cand = matches.find(m => m.profile_tag === tag);
+                if (!cand) continue;
+
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    ${choice.name} (또래: ${choice.age}, 마을: ${choice.org})
+                    <button class="btn btn-sm btn-outline-primary get-contact-btn"
+                            data-candidate-id="${cand.candidate_id}">
+                    연락처 확인
+                    </button>
+                `;
+                list.appendChild(li);
+            }
+            if (!list.childElementCount) {
+                list.innerHTML = '<li class="text-muted">매칭된 상대가 없습니다.</li>';
+            }
+        }
+
+        await loadMatches();
+
+
+        // 2. 연락처 버튼 클릭 시
+        document.getElementById('match-list').addEventListener('click', async e => {
+            if (!e.target.classList.contains('get-contact-btn')) return;
+            const candidateId = e.target.dataset.candidateId;
+            // API 호출
+            try {
+                const res = await fetch("{% url 'matching:get_contact_api' %}?candidate_id=" + candidateId);
+                const { encrypted_phone } = await res.json();
+
+                const key = await getEncryptionKey();
+                const phone = await decryptData(encrypted_phone, key);
+
+                // 화면에 표시
+                document.getElementById('contact-info').innerHTML =
+                    `<p><strong>연락처:</strong> ${phone}</p>`;
+
+            } catch (err) {
+                console.error("연락처 요청/복호화 실패", err);
+                alert("연락처를 가져오는 데 실패했습니다.");
+            }
+        });
+
+        // decryptData() 함수는 앞서 로그인/선택 페이지에서 정의한 것을 그대로 사용
+        async function decryptData(data, key) {
+            const combined = Uint8Array.from(atob(data.trim()), c => c.charCodeAt(0));
+            const iv = combined.slice(0, 12);
+            const ciphertext = combined.slice(12);
+            const decryptedBuffer = await crypto.subtle.decrypt(
+                { name: 'AES-GCM', iv: iv },
+                key,
+                ciphertext
+            );
+            return new TextDecoder().decode(decryptedBuffer);
+        }
+    })();
+</script>
+{% endblock %}

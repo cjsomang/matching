@@ -6,3 +6,6 @@ __pycache__
 *~
 /static
 .DS_Store
+**/migrations/*.py
+!**/migrations/__init__.py
+all_sources.txt

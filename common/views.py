@@ -1,7 +1,7 @@
 import json
 from django.contrib.auth import authenticate, login, logout
 from django.shortcuts import render, redirect
-from django.http import HttpResponse, JsonResponse
+from django.http import HttpResponse, JsonResponse, HttpResponseBadRequest
 # from common.forms import UserForm
 from matching.models import User
 
@@ -15,14 +15,14 @@ def login_page(request):
         password = request.POST.get('password')
 
         if not all([anon_id, password]):
-            return HttpResponse("필수 필드 누락")
+            return HttpResponseBadRequest("필수 필드 누락")
         
         user = authenticate(request, username=anon_id, password=password)
         if user:
             login(request, user)
             # redirect_url = request.POST.get('next') or 'index'
             # return JsonResponse({'status':'ok', 'redirect':redirect_url})
-            return JsonResponse({'status':'ok', 'redirect': '/'})
+            return JsonResponse({'status':'ok', 'redirect': '/', 'user_salt': user.salt})
         return JsonResponse({'status':'error','message':'아이디/비밀번호 불일치'}, status=401)
         # return HttpResponse("아이디/비밀번호 불일치")
     context = {
@@ -38,14 +38,24 @@ def signup(request):
         password = request.POST.get('password')
         gender = request.POST.get('gender')
         public_key = request.POST.get('public_key')
+        encrypted_privkey = request.POST.get('encrypted_privkey')
         encrypted_name = request.POST.get('encrypted_name')
         encrypted_age = request.POST.get('encrypted_age')
         encrypted_org = request.POST.get('encrypted_org')
         encrypted_phone = request.POST.get('encrypted_phone')
+        profile_tag = request.POST.get('profile_tag')
 
-        if not all([anon_id, password, gender, public_key,
-            encrypted_name, encrypted_age, encrypted_org, encrypted_phone]):
-            return HttpResponse("필수 필드 누락")
+        if not all([anon_id, password, gender, public_key, encrypted_privkey,
+            encrypted_name, encrypted_age, encrypted_org, encrypted_phone, profile_tag]):
+            # print(password)
+            # print(gender)
+            # print(public_key)
+            # print(encrypted_name)
+            # print(encrypted_age)
+            # print(encrypted_org)
+            # print(encrypted_phone)
+            # print(profile_tag)
+            return HttpResponseBadRequest("필수 필드 누락")
         
         # data = json.loads(request.body)
         User.objects.create_user(
@@ -53,10 +63,12 @@ def signup(request):
             password=password,
             gender=gender,
             public_key=public_key,
+            encrypted_privkey = encrypted_privkey,
             encrypted_name=encrypted_name,
             encrypted_age=encrypted_age,
             encrypted_org=encrypted_org,
             encrypted_phone=encrypted_phone,
+            profile_tag=profile_tag,
         )
 
         # username = form.cleaned_data.get('username')
