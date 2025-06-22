@@ -4,7 +4,6 @@ __pycache__
 .venv
 *.pyc
 *~
-/static
 .DS_Store
 **/migrations/*.py
 !**/migrations/__init__.py
