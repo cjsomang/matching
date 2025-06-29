@@ -17,6 +17,9 @@
                     <a class="nav-link" href="{% url 'common:logout' %}">{{ user.encrypted_name }} (로그아웃) </a>
                 </li>
                 <li class="nav-item">
+                    <a class="nav-link" href="{% url 'matching:myinfo_page' %}">내 정보</a>
+                </li>
+                <li class="nav-item">
                     <a class="nav-link" href="{% url 'matching:select_page' %}">선택하기</a>
                 </li>
                 <li class="nav-item">

@@ -81,13 +81,37 @@ def results_page(request):
 @login_required(login_url='common:login')
 def results_api(request):
     # 오직 여성 사용자만 접근 (예: gender == 'F')
-    if request.user.gender != 'F':
-        return JsonResponse({'error': '접근 불가'}, status=403)
+    if request.user.gender != 'F': # 남자 사용자
+        # 남자 사용자는 여성 사용자가 grant 한 경우에만 접근 가능
+        my_tag = request.user.profile_tag
+
+        # 나를 선택한 사람들
+        selections = Selection.objects.filter(tag=my_tag).exclude(from_user=request.user)
+        candidate_ids = selections.values_list('from_user__id', flat=True).distinct()
+        matched = User.objects.filter(id__in=candidate_ids)
+
+        granted_ids = ContactGrant.objects.filter(to_user=request.user)\
+                            .values_list('from_user__anon_id', flat=True)
+        
+        # 각 후보에 대해, 공개 프로필 정보(암호화된 상태)를 리스트로 구성합니다.
+        results = []
+        for candidate in matched:
+            # print(candidate.profile_tag)
+            if candidate.anon_id in granted_ids:
+                results.append({
+                    'candidate_id': candidate.anon_id,  # 암호화된 ID도 물론 단순 태그 형태로 제공 (여기서는 예시)
+                    'profile_tag' : candidate.profile_tag,
+                    'public_key': candidate.public_key,
+                    # 후보 연락처 암호문은 별도로 제공되지 않음; 사용자 요청 시 공개 (아래 재암호화 프로세스 사용)
+                })
+        
+        return JsonResponse({'matches': results})
 
     # 예시: 여성 사용자가 내 선택(HMAC 태그)과 다른 사용자의 선택 태그를 비교하여 서로 일치하는 후보를 "상호 매칭"으로 간주합니다.
     # 이 예시는 실제 암호화 자료를 활용하는 대신, 간단한 방식으로 설명합니다.
     # 실제로는 양쪽 사용자가 같은 공개 프로필 정보를 기반으로 동일한 HMAC 태그를 계산했어야 합니다.
-    
+    #### 여자 사용자
+
     # 내 profile_tag
     my_tag = request.user.profile_tag
 
@@ -138,16 +162,63 @@ def grant_contact_api(request):
 
 @login_required
 def get_granted_contact_api(request):
+    # 나를 승인한 상대 리스트
     from_user_id = request.GET.get('from_user')
-    if not from_user_id:
-        return JsonResponse({'error': '상대 ID 누락'}, status=400)
 
-    try:
-        from_user = User.objects.get(anon_id=from_user_id)
-        grant = ContactGrant.objects.get(from_user=from_user, to_user=request.user)
-        return JsonResponse({'reencrypted_phone': grant.reencrypted_phone})
-    except (User.DoesNotExist, ContactGrant.DoesNotExist):
-        return JsonResponse({'reencrypted_phone': None})
+    # 1) 특정 사용자로부터 받은 연락처만 요청한 경우
+    if from_user_id:
+        try:
+            from_user = User.objects.get(anon_id=from_user_id)
+            grant = ContactGrant.objects.get(from_user=from_user, to_user=request.user)
+            return JsonResponse({
+                'from_user': from_user.anon_id,
+                'reencrypted_phone': grant.reencrypted_phone
+            })
+        except (User.DoesNotExist, ContactGrant.DoesNotExist):
+            return JsonResponse({'from_user': None, 'reencrypted_phone': None})
+
+    # 2) 전체 연락처 요청 (내가 받은 모든 연락처)
+    all_grants = ContactGrant.objects.filter(to_user=request.user)
+    result = {
+        'granted': [
+            {
+                'from_user': g.from_user.anon_id,
+                'reencrypted_phone': g.reencrypted_phone
+            }
+            for g in all_grants
+        ]
+    }
+    return JsonResponse(result)
+
+@login_required
+def get_granted_by_me_api(request):
+    # 내가 승인한 상대 리스트
+    # from_user_id = request.user
+
+    # 1) 내가 승인한 특정 사용자만 요청한 경우
+    # if from_user_id:
+    #     try:
+    #         from_user = User.objects.get(anon_id=from_user_id)
+    #         grant = ContactGrant.objects.get(from_user=from_user, to_user=request.user)
+    #         return JsonResponse({
+    #             'from_user': from_user.anon_id,
+    #             'reencrypted_phone': grant.reencrypted_phone
+    #         })
+    #     except (User.DoesNotExist, ContactGrant.DoesNotExist):
+    #         return JsonResponse({'from_user': None, 'reencrypted_phone': None})
+
+    # 2) 전체 연락처 요청 (내가 승인한 모든 연락처)
+    all_grants = ContactGrant.objects.filter(from_user=request.user)
+    result = {
+        'granted': [
+            {
+                'to_user': g.to_user.anon_id
+                # 'reencrypted_phone': g.reencrypted_phone
+            }
+            for g in all_grants
+        ]
+    }
+    return JsonResponse(result)
 
 @login_required(login_url='common:login')
 def get_myinfo_api(request):
@@ -157,3 +228,31 @@ def get_myinfo_api(request):
                         'encrypted_org': request.user.encrypted_org,
                         'encrypted_phone': request.user.encrypted_phone,
                         'encrypted_privkey': request.user.encrypted_privkey})
+
+@login_required(login_url='common:login')
+def update_myinfo_api(request):
+    # 정보 업데이트
+    if request.method != "POST":
+        return JsonResponse({"error": "POST 요청만 허용"}, status=405)
+
+    data = json.loads(request.body)
+    try:
+        request.user.encrypted_name = data.get("encrypted_name", "")
+        request.user.encrypted_age = data.get("encrypted_age", "")
+        request.user.encrypted_org = data.get("encrypted_org", "")
+        request.user.encrypted_phone = data.get("encrypted_phone", "")
+        request.user.profile_tag = data.get("profile_tag", "")
+        request.user.save(update_fields=["encrypted_name", "encrypted_age", "encrypted_org", "encrypted_phone", "profile_tag"])
+        return JsonResponse({"status": "ok"})
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+@login_required(login_url='common:login')
+def myinfo_page(request):
+    #내 정보 확인
+    user = request.user
+    return render(request, 'matching/info.html', {
+        'server_secret_b64': User.SERVER_SECRET_B64,
+        'user_salt': user.salt,
+        'anon_id': user.anon_id,
+    })

@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% load static %}
+{% block content %}
+<div class="container my-3">
+    <h2>내 정보</h2>
+    <form id="myinfo-form">
+        <div class="mb-2">
+            <label>이름</label>
+            <input type="text" id="name" class="form-control" />
+        </div>
+        <div class="mb-2">
+            <label>나이</label>
+            <input type="number" id="age" class="form-control" />
+        </div>
+        <div class="mb-2">
+            <label>소속</label>
+            <input type="text" id="org" class="form-control" />
+        </div>
+        <div class="mb-2">
+            <label>연락처</label>
+            <input type="text" id="phone" class="form-control" />
+        </div>
+        <input name="profile_tag" id="profile_tag" hidden>
+        <button type="submit" class="btn btn-primary mt-2">수정 완료</button>
+    </form>
+    <form id="csrf-form">{% csrf_token %}</form>
+</div>
+{% endblock %}
+
+{% block script %}
+<script type="module">
+import {
+    hmacSign,
+    generateRsaKeyPair, exportRsaPublicKey, importRsaPublicKey,
+    rsaEncrypt, rsaDecrypt,
+    deriveAesKey, aesEncrypt, aesDecrypt, getAesKey
+} from "{% static 'crypto_utils.js' %}";    
+    (async () => {
+        const anon_id = "{{ anon_id }}";
+        const csrf = document.querySelector('#csrf-form [name=csrfmiddlewaretoken]').value;
+        
+
+        // 1) 로그인 시 세션에 저장된 AES 키 꺼내기 · 없으면 재로그인 유도
+        const key = await getAesKey(anon_id);
+
+
+        // 3) 평문 각각으로 태그 생성 → 일치하는 태그 찾아 표시
+        const serverSecretb64 = "{{ server_secret_b64 }}";
+
+        const res = await fetch("{% url 'matching:get_myinfo_api' %}");
+        const { encrypted_name, encrypted_age, encrypted_org, encrypted_phone } = await res.json();
+
+        // 복호화해서 input에 채움
+        document.getElementById("name").value = await aesDecrypt(encrypted_name, key);
+        document.getElementById("age").value = await aesDecrypt(encrypted_age, key);
+        document.getElementById("org").value = await aesDecrypt(encrypted_org, key);
+        document.getElementById("phone").value = await aesDecrypt(encrypted_phone, key);
+
+        document.getElementById("myinfo-form").addEventListener("submit", async e => {
+            e.preventDefault();
+            const name = document.getElementById("name").value;
+            const age = document.getElementById("age").value;
+            const org = document.getElementById("org").value;
+            const phone = document.getElementById("phone").value;
+
+            const encrypted_name = await aesEncrypt(name, key);
+            const encrypted_age = await aesEncrypt(age, key);
+            const encrypted_org = await aesEncrypt(org, key);
+            const encrypted_phone = await aesEncrypt(phone, key);
+
+            // 1-2) profile_tag 암호화 using HAMC
+            const profileJson = JSON.stringify({
+                name: name,
+                age: age,
+                org: org
+            });
+            const profile_tag = await hmacSign(profileJson,serverSecretb64);
+
+            const csrf = document.querySelector('#csrf-form [name=csrfmiddlewaretoken]').value;
+
+            await fetch("{% url 'matching:update_myinfo_api' %}", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "X-CSRFToken": csrf },
+                body: JSON.stringify({ encrypted_name, encrypted_age, encrypted_org, encrypted_phone, profile_tag })
+            });
+
+            alert("정보가 수정되었습니다.");
+        })
+
+    })();
+</script>
+{% endblock %}

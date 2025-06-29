@@ -28,8 +28,6 @@ import {
         
 
         // 1) 로그인 시 세션에 저장된 AES 키 꺼내기 · 없으면 재로그인 유도
-        
-
         const key = await getAesKey(anon_id);
 
         // 2) 서버에서 encrypted_choices 받아와 복호화
@@ -41,7 +39,7 @@ import {
         }
         const plainChoices = JSON.parse(await aesDecrypt(encrypted_choices, key));
 
-        // 1) 서버가 준 매칭 리스트
+        // 3-1) 서버가 준 매칭 리스트
         const res = await fetch("{% url 'matching:results_api' %}");
         const { matches } = await res.json();
         if (!matches.length) {
@@ -49,34 +47,19 @@ import {
             return;
         }
 
-        // 3) 평문 각각으로 태그 생성 → 일치하는 서버 태그 찾아 표시
-        const serverSecretb64 = "{{ server_secret_b64 }}";
+        // 3-2) 내가 승인한 상대 리스트 받아오기
+        const resMe = await fetch("{% url 'matching:get_granted_by_me_api' %}");
+        const grantedByMe = (await resMe.json()).granted.map(g => g.to_user); // ["anonId1", "anonId2"]
 
-        const list = document.getElementById('match-list');
-        list.innerHTML = '';
-        for (let choice of plainChoices) {
-            // console.log(JSON.stringify(choice));
-            const tag = await hmacSign(JSON.stringify(choice), serverSecretb64);
-            // console.log(tag);
-            // 서버가 돌려준 matches 중 태그가 일치하는 후보 찾기
-            const cand = matches.find(m => m.profile_tag === tag);
-            if (!cand) continue;
-
-            const li = document.createElement('li');
-            li.innerHTML = `
-                ${choice.name} (또래: ${choice.age}, 마을: ${choice.org})
-                <button class="btn btn-sm btn-outline-primary get-contact-btn"
-                        data-candidate-id="${cand.candidate_id}" data-pubkey="${cand.public_key}">
-                연락처 전달하기
-                </button>
-            `;
-            list.appendChild(li);
+        // 3-2) 나를 승인한 상대 리스트 받아오기
+        const resThem = await fetch("{% url 'matching:get_granted_contact_api' %}");
+        const grantedToMeList = (await resThem.json()).granted; // [{ from_user: anonId, reencrypted_phone }, ...]
+        const grantedToMeMap = {};
+        for (const g of grantedToMeList) {
+            grantedToMeMap[g.from_user] = g.reencrypted_phone;
         }
-        // if (!list.childElementCount) {
-        //     list.innerHTML = '<li class="text-muted"> 매칭된 상대가 없습니다.</li>';
-        // }
 
-
+        // 내 연락처 받아오기
         const res_in = await fetch("{% url 'matching:get_myinfo_api' %}");
         const mydata = await res_in.json();
 
@@ -86,9 +69,7 @@ import {
             throw new Error("연락처 암호문 형식이 이상함");
         }
 
-        // 내 연락처 복호화
-        // console.log('내 AES 키:', key);
-        // console.log('내 암호화된 privkey:', mydata.encrypted_privkey);
+        // 3-3) 내 비밀키 import
         let privB64;
         try {
             privB64 = await aesDecrypt(mydata.encrypted_privkey, key);
@@ -97,10 +78,8 @@ import {
             console.error("❌ 개인키 복호화 실패:", err);
             return;
         }
-        // const privKey = await aesDecrypt(mydata.encrypted_privkey, key);
         // console.log('내 priv 키:', privKey);
         const privBytes = Uint8Array.from(atob(privB64), c => c.charCodeAt(0));
-
         // importKey로 RSA‑OAEP privateKey 복원
         const privateKey = await crypto.subtle.importKey(
             'pkcs8',
@@ -109,21 +88,84 @@ import {
             false,
             ['decrypt']
         );
-
         // console.log('복원된 RSA privateKey:', privateKey);
 
+
+        // 3) 평문 각각으로 태그 생성 → 일치하는 태그 찾아 표시
+        const serverSecretb64 = "{{ server_secret_b64 }}";
+
+        const list = document.getElementById('match-list');
+        list.innerHTML = '';
+        for (let choice of plainChoices) {
+            const tag = await hmacSign(JSON.stringify(choice), serverSecretb64);
+            const cand = matches.find(m => m.profile_tag === tag);
+            if (!cand) continue;
+
+            const anonId = cand.candidate_id;
+            const iApproved = grantedByMe.includes(anonId);
+            const theyApproved = anonId in grantedToMeMap;
+
+            const li = document.createElement('li');
+
+            li.className = 'list-group-item d-flex justify-content-between align-items-center';
+            li.dataset.anon = cand.candidate_id;
+            li.dataset.pubkey = cand.public_key;
+
+            let contactHTML = '';
+            let buttonHTML = '';
+
+            // 승인 여부에 따라 버튼 대신 연락처 채워넣기
+            // 나와 상대방이 모두 승인 -> 연락처 공개
+            // 나만 승인 -> 승인 버튼 비활성화
+            if (iApproved && theyApproved) {
+                const phone = await rsaDecrypt(privateKey, grantedToMeMap[anonId]);
+                contactHTML = `<span class="contact-display">📞 ${phone}</span>`;
+            }
+            else if (!iApproved && grantedByMe.length == 0) {
+                buttonHTML = `<button class="btn btn-sm btn-outline-primary approve-btn">승인(연락처 보내기)</button>`;
+            } else if (!theyApproved) {
+                buttonHTML = `<button class="btn btn-sm btn-outline-secondary" disabled>승인 완료</button>`;
+            }
+
+            li.innerHTML = `
+                <div class="flex-grow-1">
+                    ${choice.name} (또래: ${choice.age}, 마을: ${choice.org}) — 
+                    ${contactHTML}
+                    ${buttonHTML}
+                </div>
+            `;
+
+            const grantedItem = granted_data.granted.find(g => g.from_user === cand.candidate_id);
+            let phone = '';
+            if (grantedItem) {
+                const phoneBytes = await rsaDecrypt(privateKey, grantedItem.reencrypted_phone);
+                phone = new TextDecoder().decode(phoneBytes);
+            }
+
+            li.innerHTML = `
+            <div class="flex-grow-1">
+                ${choice.name} (또래: ${choice.age}, 마을: ${choice.org}) — 
+                <span class="contact-display">${phone}</span>
+                ${phone
+                ? ''
+                : `<button class="btn btn-sm btn-outline-primary approve-btn">연락처 전달하기</button>`}
+            </div>
+            `;
+            list.appendChild(li);
+        }
+
+
         // 2. 연락처 버튼 클릭 시
-        document.getElementById('match-list').addEventListener('click', async e => {
+        list.addEventListener('click', async e => {
             if (!e.target.classList.contains('get-contact-btn')) return;
             const candidateId = e.target.dataset.candidateId;
             const pubkeyPem = e.target.dataset.pubkey;
             // API 호출
             try {
-                // 내 연락처 받기
+                /* 내 연락처 받기 */
 
-
-                console.log("encrypted_phone length:", mydata.encrypted_phone.length);
-                console.log("decoded length:", atob(mydata.encrypted_phone).length);
+                // console.log("encrypted_phone length:", mydata.encrypted_phone.length);
+                // console.log("decoded length:", atob(mydata.encrypted_phone).length);
 
                 const phone = await aesDecrypt(mydata.encrypted_phone, key);
 
@@ -157,26 +199,26 @@ import {
         // const res_contact = await fetch("{% url 'matching:get_granted_contact_api' %}");
         // try {
             // 1) POST 해서 저장 & 재암호화된 전화번호 받기
-            const res_contact = await fetch("{% url 'matching:grant_contact_api' %}", {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': document
-                        .querySelector('#csrf-form [name=csrfmiddlewaretoken]')
-                        .value
-                },
-                body: JSON.stringify({
-                    to_user: candidateId,
-                    reencrypted_phone: reencrypted_phone
-                })
-            });
-            const j = await res_contact.json();
-            if (res_contact.status !== 200 || j.status !== 'ok') {
-                throw new Error(j.error || 'grant 실패');
-            }
+            // const res_contact = await fetch("{% url 'matching:get_granted_contact_api' %}", {
+            //     method: 'POST',
+            //     headers: {
+            //         'Content-Type': 'application/json',
+            //         'X-CSRFToken': document
+            //             .querySelector('#csrf-form [name=csrfmiddlewaretoken]')
+            //             .value
+            //     },
+            //     body: JSON.stringify({
+            //         to_user: candidateId,
+            //         reencrypted_phone: reencrypted_phone
+            //     })
+            // });
+            // const j = await res_contact.json();
+            // if (res_contact.status !== 200 || j.status !== 'ok') {
+            //     throw new Error(j.error || 'grant 실패');
+            // }
 
-            const plainPhone = await rsaDecrypt(privateKey, res.reencrypted_phone);
-            document.getElementById('contact-info').textContent = `📞 연락처: ${plainPhone}`;
+            // const plainPhone = await rsaDecrypt(privateKey, res.reencrypted_phone);
+            // document.getElementById('contact-info').textContent = `📞 연락처: ${plainPhone}`;
         // }
         // } catch (err) {
         //     console.error(err);

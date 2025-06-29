@@ -11,8 +11,11 @@ urlpatterns = [
     path('result/', views.results_page, name='results_page'),
     path('result/api', views.results_api, name='results_api'),
     # path('contact/api', views.get_contact_api, name='get_contact_api'),
-    path('myinfo/api', views.get_myinfo_api, name='get_myinfo_api'),
+    path('myinfo/', views.myinfo_page, name='myinfo_page'),
+    path('myinfo/get/api', views.get_myinfo_api, name='get_myinfo_api'),
+    path('myinfo/update/api', views.update_myinfo_api, name='update_myinfo_api'),
     path('contact/grant/api', views.grant_contact_api, name='grant_contact_api'),
     path('contact/get/api', views.get_granted_contact_api, name='get_granted_contact_api'),
+    path('contact/mine/api', views.get_granted_by_me_api, name='get_granted_by_me_api'),
 
 ]
