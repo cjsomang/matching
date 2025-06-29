@@ -6,9 +6,9 @@
     <ul id="match-list">
         <!-- 여기서 매칭된 후보의 공개 프로필 정보를 목록으로 표시합니다. -->
     </ul>
-    <div id="contact-info" class="mt-3">
+    <!-- <div id="contact-info" class="mt-3"> -->
         <!-- 여성이 후보를 선택하면 해당 후보의 연락처를 표시 -->
-    </div>
+    <!-- </div> -->
     <div id="no-matches" class="text-muted"></div>
     <form id="csrf-form">{% csrf_token %}</form>
 </div>
@@ -60,7 +60,7 @@ import {
         }
 
         // 내 연락처 받아오기
-        const res_in = await fetch("{% url 'matching:get_myinfo_api' %}");
+        const res_in = await fetch("{% url 'common:get_myinfo_api' %}");
         const mydata = await res_in.json();
 
         // console.log('my enc phone: ', mydata.encrypted_phone);
@@ -118,48 +118,43 @@ import {
             // 나와 상대방이 모두 승인 -> 연락처 공개
             // 나만 승인 -> 승인 버튼 비활성화
             if (iApproved && theyApproved) {
-                const phone = await rsaDecrypt(privateKey, grantedToMeMap[anonId]);
+                const phoneBytes = await rsaDecrypt(privateKey, grantedToMeMap[anonId]);
+                const phone = new TextDecoder().decode(phoneBytes);
                 contactHTML = `<span class="contact-display">📞 ${phone}</span>`;
             }
             else if (!iApproved && grantedByMe.length == 0) {
                 buttonHTML = `<button class="btn btn-sm btn-outline-primary approve-btn">승인(연락처 보내기)</button>`;
-            } else if (!theyApproved) {
+            } else if (!theyApproved && iApproved) {
                 buttonHTML = `<button class="btn btn-sm btn-outline-secondary" disabled>승인 완료</button>`;
-            }
+            }            
 
             li.innerHTML = `
                 <div class="flex-grow-1">
-                    ${choice.name} (또래: ${choice.age}, 마을: ${choice.org}) — 
+                    ${choice.name} (또래: ${choice.age}, 마을: ${choice.org})    
                     ${contactHTML}
                     ${buttonHTML}
                 </div>
             `;
 
-            const grantedItem = granted_data.granted.find(g => g.from_user === cand.candidate_id);
-            let phone = '';
-            if (grantedItem) {
-                const phoneBytes = await rsaDecrypt(privateKey, grantedItem.reencrypted_phone);
-                phone = new TextDecoder().decode(phoneBytes);
-            }
-
-            li.innerHTML = `
-            <div class="flex-grow-1">
-                ${choice.name} (또래: ${choice.age}, 마을: ${choice.org}) — 
-                <span class="contact-display">${phone}</span>
-                ${phone
-                ? ''
-                : `<button class="btn btn-sm btn-outline-primary approve-btn">연락처 전달하기</button>`}
-            </div>
-            `;
             list.appendChild(li);
         }
 
 
         // 2. 연락처 버튼 클릭 시
         list.addEventListener('click', async e => {
-            if (!e.target.classList.contains('get-contact-btn')) return;
-            const candidateId = e.target.dataset.candidateId;
-            const pubkeyPem = e.target.dataset.pubkey;
+            if (!e.target.classList.contains('approve-btn')) return;
+            const li = e.target.closest('li');
+            const nameText = li.innerText.split("—")[0].trim(); // 이름 (또래, 마을)
+            const confirmMsg = `${nameText} 님을 승인하시겠습니까?`;
+            if (!confirm(confirmMsg)) {
+                return;
+            }
+
+            const candidateId = li.dataset.anon;
+            const pubkeyPem = li.dataset.pubkey;
+            console.log("상대방 anon_id: ", candidateId);
+            console.log("상대방 pubkey: ", pubkeyPem);
+
             // API 호출
             try {
                 /* 내 연락처 받기 */
@@ -188,6 +183,13 @@ import {
                 headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
                 body: JSON.stringify({ to_user: candidateId, reencrypted_phone: grantEnc_phone })
             });
+
+            if (res.ok) {
+                // 승인 성공 → 화면 새로고침
+                location.reload();
+            } else {
+                alert("승인에 실패했습니다.");
+            }
 
             } catch (err) {
                 console.error("연락처 요청/복호화 실패", err);

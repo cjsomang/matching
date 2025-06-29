@@ -26,9 +26,9 @@
         <button id="submit-btn" class="btn btn-primary">제출</button>
     </form>
 
-    <hr>
+    <!-- <hr>
     <h3>내 선택 보기</h3>
-    <ul id="my-selections"></ul>
+    <ul id="my-selections"></ul> -->
 </div>
 {% endblock %}
 
@@ -60,23 +60,26 @@ import {
         // 2) 저장된 encrypted_choices 불러와 복호화해 표시
         async function loadChoices(anon_id) {
             const key = await getAesKey(anon_id);
-            // let test = "안녕하세요";
-            // let Encresult = await aesEncrypt(test, key);
-            // let Decresult = await aesDecrypt(Encresult, key);
-            // console.log(test);
-            // console.log(Encresult);
-            // console.log(Decresult);
             const res = await fetch("{% url 'matching:choices_api' %}");
             if (!res.ok) return;
             const { encrypted_choices } = await res.json();
             if (!encrypted_choices) {
-            list.innerHTML = "<li class='text-muted'>선택한 결과가 없습니다.</li>";
+            // list.innerHTML = "<li class='text-muted'>선택한 결과가 없습니다.</li>";
             return;
             }
             const plain = JSON.parse(await aesDecrypt(encrypted_choices, key));
-            list.innerHTML = plain.map(o =>
-            `<li>${o.name}, ${o.age}, ${o.org}</li>`
-            ).join('');
+            // list.innerHTML = plain.map(o =>
+            // `<li>${o.name}, ${o.age}, ${o.org}</li>`
+            // ).join('');
+            const rows = document.querySelectorAll('.select-row');
+
+            plain.forEach((choice, i) => {
+                if (i >= rows.length) return;
+                const row = rows[i];
+                row.querySelector('[name=name]').value = choice.name;
+                row.querySelector('[name=age]').value = choice.age;
+                row.querySelector('[name=org]').value = choice.org;
+            });
         }
         await loadChoices(anon_id);
 

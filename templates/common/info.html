@@ -21,7 +21,7 @@
             <input type="text" id="phone" class="form-control" />
         </div>
         <input name="profile_tag" id="profile_tag" hidden>
-        <button type="submit" class="btn btn-primary mt-2">수정 완료</button>
+        <button type="submit" class="btn btn-primary mt-2">정보 수정</button>
     </form>
     <form id="csrf-form">{% csrf_token %}</form>
 </div>
@@ -47,7 +47,7 @@ import {
         // 3) 평문 각각으로 태그 생성 → 일치하는 태그 찾아 표시
         const serverSecretb64 = "{{ server_secret_b64 }}";
 
-        const res = await fetch("{% url 'matching:get_myinfo_api' %}");
+        const res = await fetch("{% url 'common:get_myinfo_api' %}");
         const { encrypted_name, encrypted_age, encrypted_org, encrypted_phone } = await res.json();
 
         // 복호화해서 input에 채움
@@ -78,7 +78,7 @@ import {
 
             const csrf = document.querySelector('#csrf-form [name=csrfmiddlewaretoken]').value;
 
-            await fetch("{% url 'matching:update_myinfo_api' %}", {
+            await fetch("{% url 'common:update_myinfo_api' %}", {
                 method: "POST",
                 headers: { "Content-Type": "application/json", "X-CSRFToken": csrf },
                 body: JSON.stringify({ encrypted_name, encrypted_age, encrypted_org, encrypted_phone, profile_tag })
