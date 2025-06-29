@@ -1,5 +1,6 @@
 import json
 from django.contrib.auth import authenticate, login, logout
+from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import render, redirect
 from django.http import HttpResponse, JsonResponse, HttpResponseBadRequest
 import os, base64
@@ -17,50 +18,46 @@ def login_page(request):
         password = request.POST.get('password')
 
         if not all([anon_id, password]):
-            return HttpResponseBadRequest("필수 필드 누락")
+            return JsonResponse({'status': 'error', 'message': '아이디 또는 비밀번호 누락'}, status=400)
         
         user = authenticate(request, username=anon_id, password=password)
         if user:
             login(request, user)
-            # redirect_url = request.POST.get('next') or 'index'
-            # return JsonResponse({'status':'ok', 'redirect':redirect_url})
             return JsonResponse({'status':'ok', 'redirect': '/', 'user_salt': user.salt})
         return JsonResponse({'status':'error','message':'아이디/비밀번호 불일치'}, status=401)
-        # return HttpResponse("아이디/비밀번호 불일치")
     context = {
         'server_secret_b64': User.SERVER_SECRET_B64,  # settings에서 base64로 제공
-        'next': request.GET.get('next', '/'),
     }
     return render(request, 'common/login.html', context)
     
-
+@csrf_exempt # fetch 사용 시 필요 (단, 보안을 위해 CSRF 토큰은 JS에서 함께 전달)
 def signup(request):
     if request.method == "POST":
-        anon_id = request.POST.get('anon_id')
-        password = request.POST.get('password')
-        gender = request.POST.get('gender')
-        public_key = request.POST.get('public_key')
-        encrypted_privkey = request.POST.get('encrypted_privkey')
-        encrypted_name = request.POST.get('encrypted_name')
-        encrypted_age = request.POST.get('encrypted_age')
-        encrypted_org = request.POST.get('encrypted_org')
-        encrypted_phone = request.POST.get('encrypted_phone')
-        profile_tag = request.POST.get('profile_tag')
-        salt = request.POST.get('salt')
-
-        if not all([anon_id, password, gender, public_key, encrypted_privkey,
-            encrypted_name, encrypted_age, encrypted_org, encrypted_phone, profile_tag, salt]):
-            # print(password)
-            # print(gender)
-            # print(public_key)
-            # print(encrypted_name)
-            # print(encrypted_age)
-            # print(encrypted_org)
-            # print(encrypted_phone)
-            # print(profile_tag)
-            return HttpResponseBadRequest("필수 필드 누락")
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({"status": "error", "message": "잘못된 JSON"}, status=400)
         
-        # data = json.loads(request.body)
+        required_fields = [
+            "anon_id", "password", "gender", "public_key", "encrypted_privkey",
+            "encrypted_name", "encrypted_age", "encrypted_org",
+            "encrypted_phone", "profile_tag", "salt"
+        ]
+        if not all(data.get(f) for f in required_fields):
+            return JsonResponse({"status": "error", "message": "필수 항목 누락"}, status=400)
+
+        anon_id = data['anon_id']
+        password = data['password']
+        gender = data['gender']
+        public_key = data['public_key']
+        encrypted_privkey = data['encrypted_privkey']
+        encrypted_name = data['encrypted_name']
+        encrypted_age = data['encrypted_age']
+        encrypted_org = data['encrypted_org']
+        encrypted_phone = data['encrypted_phone']
+        profile_tag = data['profile_tag']
+        salt = data['salt']
+
         User.objects.create_user(
             anon_id=anon_id,
             password=password,
@@ -79,10 +76,9 @@ def signup(request):
         # raw_password = form.cleaned_data.get('password1')
         # user = authenticate(username=username, password=raw_password) # 사용자 인증
         # login(request, user) # 로그인
-        return HttpResponse("<p>회원가입이 완료되었습니다.</p>")
-    # else:
-        # form = UserForm()
-    # return render(request, 'common/signup.html', {'form': form})
+        return JsonResponse({"status": "ok"})
+    
+    # Get 요청시
     user_salt = base64.b64encode(os.urandom(16)).decode()
     context = {
         'server_secret_b64': User.SERVER_SECRET_B64,  # settings에서 base64로 제공

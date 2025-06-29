@@ -28,7 +28,7 @@ def select_api(request):
     encrypted = data.get('encrypted_choices')
     tags = data.get('tags', [])
 
-    if encrypted is None:
+    if not tags or not encrypted:
         return JsonResponse({'message':'선택 데이터 누락'}, status=400)
     elif (not (1 <= len(tags) <= 3)):
         return JsonResponse({'message':'1~3명 선택 가능'}, status=400)
@@ -59,7 +59,7 @@ def select_api(request):
 
     except Exception as e:
         # 내부 오류일 때는 500과 함께 메시지를 남깁니다
-        return JsonResponse({'message': f'서버 오류: {e}'}, status=500)
+        return JsonResponse({'message': str(e)}, status=500)
 
     return JsonResponse({'status':'ok'})
 

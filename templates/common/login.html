@@ -3,11 +3,14 @@
 {% block content %}
 <div id="login-result" class="mt-3 text-danger"></div>
 <div class="container my-3">
-    <form id="login-form" method="post" action="{% url 'common:login' %}">
+    {% if request.GET.signup == "ok" %}
+    <div class="alert alert-success">✅ 회원가입이 완료되었습니다. 로그인 해주세요.</div>
+    {% endif %}
+
+    <form id="login-form">
         {% csrf_token %}
         <!-- <input type="hidden" name="next" value="{{ next }}"> -->
         {% include "form_errors.html" %}
-        <input type="hidden" name="anon_id" id="anon_id">
         
         <div class="mb-3">
             <label for="user_id">사용자 ID</label>
@@ -49,11 +52,14 @@ import {
 
         // anon_id 생성 (HMAC)
         const anonId = await hmacSign(userId,serverSecretB64);
-        document.getElementById('anon_id').value = anonId;
-
+        // document.getElementById('anon_id').value = anonId;
+   
         
         const fd = new FormData(form);
         const csrf = fd.get('csrfmiddlewaretoken');
+
+        fd.append('anon_id', anonId);
+        fd.append('password', password);
 
         try {
             const res = await fetch(form.action, {
@@ -61,39 +67,36 @@ import {
                 headers: { 'X-CSRFToken': csrf },
                 body: fd
             });
-            const contentType = res.headers.get('Content-Type');
-            if (contentType && contentType.includes('application/json')) {
-                const data = await res.json();
-                if (res.ok) {
-                    if (data.status === 'ok' && data.redirect) {
+            const contentType = res.headers.get('Content-Type') || '';
+            if (!contentType.includes('application/json')) {
+                resultDiv.textContent = "서버에서 JSON이 아닌 응답을 보냈습니다.";
+                return;
+            }
 
-                        const userSaltB64 = data.user_salt;
-                        const salt = Uint8Array.from(atob(userSaltB64), c => c.charCodeAt(0));
 
-                        // local storage에 user key 저장
-                        const aesKey = await deriveAesKey(password, salt);
-                        const rawKey = await crypto.subtle.exportKey('raw', aesKey);
-                        const aesKeyB64 = btoa(String.fromCharCode(...new Uint8Array(rawKey)));
+            const data = await res.json();
+            if (res.ok && data.status === 'ok') {
+                const userSaltB64 = data.user_salt;
+                const salt = Uint8Array.from(atob(userSaltB64), c => c.charCodeAt(0));
 
-                        let allKeys = JSON.parse(sessionStorage.getItem('user_keys') || '{}');
-                        allKeys[anonId] = aesKeyB64;
-                        sessionStorage.setItem('user_keys', JSON.stringify(allKeys));
+                // local storage에 user key 저장
+                const aesKey = await deriveAesKey(password, salt);
+                const rawKey = await crypto.subtle.exportKey('raw', aesKey);
+                const aesKeyB64 = btoa(String.fromCharCode(...new Uint8Array(rawKey)));
 
-                        // for salt debuging
-                        // const saltstring = btoa(String.fromCharCode(...new Uint8Array(salt)));
-                        // console.log('salt from server:', saltstring);
-                        // console.log('encoded AES key:', aesKeyB64);
-                        
-                        // 로그인 후 redirect
-                        window.location.href = data.redirect;
-                    } else {
-                        resultDiv.textContent = "알 수 없는 오류가 발생했습니다.";
-                    }
-                } else {
-                    resultDiv.textContent = data.message;
-                }
+                let allKeys = JSON.parse(sessionStorage.getItem('user_keys') || '{}');
+                allKeys[anonId] = aesKeyB64;
+                sessionStorage.setItem('user_keys', JSON.stringify(allKeys));
+
+                // for salt debuging
+                // const saltstring = btoa(String.fromCharCode(...new Uint8Array(salt)));
+                // console.log('salt from server:', saltstring);
+                // console.log('encoded AES key:', aesKeyB64);
+                
+                // 로그인 후 redirect
+                window.location.href = data.redirect;
             } else {
-                resultDiv.textContent = "서버에서 예상치 못한 응답을 보냈습니다.";
+                resultDiv.textContent = data.message || "로그인 실패";
             }
         } catch (err) {
             console.error("❌ 네트워크 오류:", err);

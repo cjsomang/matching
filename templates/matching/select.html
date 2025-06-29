@@ -95,7 +95,16 @@ import {
                 const name = r.querySelector('[name=name]').value.trim();
                 const age = r.querySelector('[name=age]').value.trim();
                 const org = r.querySelector('[name=org]').value.trim();
-                if (name && age && org) {
+
+                const hasAny = name || age || org;
+                const hasAll = name && age && org;
+                
+                // 빈 칸이 있으면 저장 불가
+                if (hasAny && !hasAll) {
+                    alert("후보의 이름, 또래, 마을은 모두 입력하세요.");
+                    return;
+                }
+                if (hasAll) {
                     choices.push({ name:name, age:age, org:org });
                 }
             }
@@ -123,13 +132,11 @@ import {
                 // return;
 
                 // 가능한 에러 포맷(json or text) 모두 시도해 봅니다.
-                let errMsg;
+                let errMsg = await res.text();
                 try {
                     const obj = await res.json();
-                    errMsg = obj.message || JSON.stringify(obj);
-                } catch {
-                    errMsg = await res.text();
-                }
+                    errMsg = obj.message || errMsg;
+                } catch {}
                 console.error("서버 응답 오류:", errMsg);
                 alert("저장 실패: " + errMsg);
                 return;

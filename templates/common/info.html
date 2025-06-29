@@ -58,10 +58,10 @@ import {
 
         document.getElementById("myinfo-form").addEventListener("submit", async e => {
             e.preventDefault();
-            const name = document.getElementById("name").value;
-            const age = document.getElementById("age").value;
-            const org = document.getElementById("org").value;
-            const phone = document.getElementById("phone").value;
+            const name = document.getElementById("name").value.trim();
+            const age = document.getElementById("age").value.trim();
+            const org = document.getElementById("org").value.trim();
+            const phone = document.getElementById("phone").value.trim();
 
             const encrypted_name = await aesEncrypt(name, key);
             const encrypted_age = await aesEncrypt(age, key);
@@ -75,8 +75,6 @@ import {
                 org: org
             });
             const profile_tag = await hmacSign(profileJson,serverSecretb64);
-
-            const csrf = document.querySelector('#csrf-form [name=csrfmiddlewaretoken]').value;
 
             await fetch("{% url 'common:update_myinfo_api' %}", {
                 method: "POST",
