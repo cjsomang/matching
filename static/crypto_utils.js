@@ -165,5 +165,5 @@ export async function getAesKey(anon_id) {
         throw new Error("AES 키 없음");
     }
     const raw = Uint8Array.from(atob(encryptedPriv), c => c.charCodeAt(0));
-    return crypto.subtle.importKey('raw', raw.buffer, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
+    return crypto.subtle.importKey('raw', raw.buffer, { name: 'AES-GCM' }, true, ['encrypt', 'decrypt']);
 }

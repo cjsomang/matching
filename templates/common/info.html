@@ -4,23 +4,54 @@
 <div class="container my-3">
     <h2>내 정보</h2>
     <form id="myinfo-form">
+        <!-- {% csrf_token %} -->
+        <div class="mb-2">
+            <label>현재 비밀번호</label>
+            <input type="password" id="password" class="form-control" required>
+        </div>
+        <div class="mb-2">
+            <label>새 비밀번호</label>
+            <input type="password" id="password21" class="form-control">
+        </div>
+        <div class="mb-2">
+            <label>새 비밀번호 확인</label>
+            <input type="password" id="password22" class="form-control">
+        </div>
         <div class="mb-2">
             <label>이름</label>
-            <input type="text" id="name" class="form-control" />
+            <input type="text" id="name" class="form-control" required>
         </div>
         <div class="mb-2">
-            <label>나이</label>
-            <input type="number" id="age" class="form-control" />
+            <label>성별</label>
+            <input type="text" id="gender" class="form-control" disabled>
         </div>
         <div class="mb-2">
-            <label>소속</label>
-            <input type="text" id="org" class="form-control" />
+            <label>또래</label>
+            <input type="number" id="age" class="form-control" required>
+        </div>
+        <div class="mb-2">
+            <label>마을</label>
+            <!-- <input type="text" id="org" class="form-control" required> -->
+            <select class="form-control" name="org" id="org" required>
+                <option value="">-- 마을을 선택하세요 --</option>
+                <option value="고백하는">고백하는</option>
+                <option value="보라새것">보라새것</option>
+                <option value="빛이나는">빛이나는</option>
+                <option value="싹이트는">싹이트는</option>
+                <option value="사랑팀">사랑팀</option>
+                <option value="주는사랑">주는사랑</option>
+                <option value="하나되는">하나되는</option>
+                <option value="그루터기">그루터기</option>
+                <option value="사랑하는">사랑하는(국팀)</option>
+                <option value="간사">간사</option>
+            </select>
         </div>
         <div class="mb-2">
             <label>연락처</label>
-            <input type="text" id="phone" class="form-control" />
+            <input type="text" id="phone" class="form-control" required>
         </div>
         <input name="profile_tag" id="profile_tag" hidden>
+        <div id="msg" class="text-danger"></div>
         <button type="submit" class="btn btn-primary mt-2">정보 수정</button>
     </form>
     <form id="csrf-form">{% csrf_token %}</form>
@@ -46,27 +77,125 @@ import {
 
         // 3) 평문 각각으로 태그 생성 → 일치하는 태그 찾아 표시
         const serverSecretb64 = "{{ server_secret_b64 }}";
+        const userSaltB64 = "{{ user_salt }}";
+        const salt = Uint8Array.from(atob(userSaltB64), c => c.charCodeAt(0));
 
         const res = await fetch("{% url 'common:get_myinfo_api' %}");
-        const { encrypted_name, encrypted_age, encrypted_org, encrypted_phone } = await res.json();
+        const { encrypted_name, encrypted_age, encrypted_org, encrypted_phone, encrypted_privkey, gender } = await res.json();
 
         // 복호화해서 input에 채움
         document.getElementById("name").value = await aesDecrypt(encrypted_name, key);
         document.getElementById("age").value = await aesDecrypt(encrypted_age, key);
         document.getElementById("org").value = await aesDecrypt(encrypted_org, key);
-        document.getElementById("phone").value = await aesDecrypt(encrypted_phone, key);
+        // document.getElementById("phone").value = await aesDecrypt(encrypted_phone, key);
+        let genderShow;
+        if(gender === "M"){
+            genderShow = "남";
+        }
+        else if(gender === "F"){
+            genderShow = "여";
+        }
+
+        document.getElementById("gender").value = genderShow;
+
+        function formatPhone(raw) {
+            raw = raw.replace(/\D/g, '');
+            if (raw.length === 11)
+                return raw.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3');
+            else if (raw.length === 10)
+                return raw.replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3');
+            return raw;
+        }
+        document.getElementById("phone").value = formatPhone(await aesDecrypt(encrypted_phone, key));
+
+        // 3) 입력 중 하이픈 자동 삽입
+        const phoneInput = document.getElementById("phone");
+        phoneInput.addEventListener("input", () => {
+            const raw = phoneInput.value.replace(/\D/g, '');
+            let formatted = raw;
+            if (raw.length <= 3) {
+                formatted = raw;
+            } else if (raw.length <= 7) {
+                formatted = raw.replace(/(\d{3})(\d+)/, "$1-$2");
+            } else {
+                formatted = raw.replace(/(\d{3})(\d{4})(\d+)/, "$1-$2-$3");
+            }
+            phoneInput.value = formatted;
+        });
+
+        let privB64;
+        try {
+            privB64 = await aesDecrypt(encrypted_privkey, key);
+            // console.log('복호화된 privB64:', privB64);
+        } catch (err) {
+            console.error("❌ 개인키 복호화 실패:", err);
+            return;
+        }
+        // const afterenc = await aesEncrypt(privB64, aesKey);
 
         document.getElementById("myinfo-form").addEventListener("submit", async e => {
             e.preventDefault();
+
+            const password = document.getElementById("password").value.trim();
+            const pw21 = document.getElementById("password21").value.trim();
+            const pw22 = document.getElementById("password22").value.trim();
+
+            if (pw21 && pw21 !== pw22) {
+                document.getElementById("msg").textContent = "새 비밀번호가 일치하지 않습니다.";
+                return;
+            }
+
+            if( pw21 && pw21.length < 6)
+            {
+                document.getElementById("msg").textContent = "비밀번호는 6글자 이상이어야 합니다.";
+                return;
+            }
+
+
+            const form = document.getElementById('myinfo-form');
+            // const fd = new FormData(form);
+
+            // fd.append('anon_id', anon_id);
+            // fd.append('password', pw);
+
+            // const csrf = fd.get('csrfmiddlewaretoken');
+
+            // const res = await fetch("{% url 'common:login' %}", {
+            //     method: 'POST',
+            //     credentials: 'same-origin',
+            //     // headers: { 'X-CSRFToken': csrf },
+            //     body: fd
+            // });
+            
+
+            // const data = await res.json();
+            // if (!res.ok || data.status != "ok"){
+            //     document.getElementById("msg").textContent = "저장된 비밀번호와 일치하지 않습니다.";
+            //     return;
+            // }
+            let aesKey = key;
+            if (pw21) {
+                aesKey = await deriveAesKey(pw21, salt);
+            }
+
             const name = document.getElementById("name").value.trim();
             const age = document.getElementById("age").value.trim();
             const org = document.getElementById("org").value.trim();
             const phone = document.getElementById("phone").value.trim();
 
-            const encrypted_name = await aesEncrypt(name, key);
-            const encrypted_age = await aesEncrypt(age, key);
-            const encrypted_org = await aesEncrypt(org, key);
-            const encrypted_phone = await aesEncrypt(phone, key);
+            const encrypted_name = await aesEncrypt(name, aesKey);
+            const encrypted_age = await aesEncrypt(age, aesKey);
+            const encrypted_org = await aesEncrypt(org, aesKey);
+            // const encrypted_phone = await aesEncrypt(phone, key);
+
+            const cleanedPhone = phone.replace(/\D/g, '');
+            const encrypted_phone = await aesEncrypt(cleanedPhone, aesKey);
+            const encrypted_privkey = await aesEncrypt(privB64, aesKey);
+
+            if (!org) {
+                document.getElementById("msg").textContent = "마을을 선택해주세요.";
+                return;
+            }
 
             // 1-2) profile_tag 암호화 using HAMC
             const profileJson = JSON.stringify({
@@ -76,13 +205,57 @@ import {
             });
             const profile_tag = await hmacSign(profileJson,serverSecretb64);
 
-            await fetch("{% url 'common:update_myinfo_api' %}", {
-                method: "POST",
-                headers: { "Content-Type": "application/json", "X-CSRFToken": csrf },
-                body: JSON.stringify({ encrypted_name, encrypted_age, encrypted_org, encrypted_phone, profile_tag })
-            });
 
-            alert("정보가 수정되었습니다.");
+
+            // fd.append('encrypted_name', encrypted_name);
+            // fd.append('encrypted_age', encrypted_age);
+            // fd.append('encrypted_org', encrypted_org);
+            // fd.append('encrypted_phone', encrypted_phone);
+            // fd.append('profile_tag', profile_tag);
+            // fd.append('password', pw);
+
+            // if (pw21 && pw21 === pw22) {
+            //     fd.append('password21', pw21);
+            // }
+
+            let payload = {
+                encrypted_name, encrypted_age, encrypted_org,
+                encrypted_phone, profile_tag, password, encrypted_privkey
+            }
+            if (pw21 && pw21 === pw22) {
+                payload.password21 = pw21;
+            }
+            // const csrf = fd.get('csrfmiddlewaretoken');
+            const res2 = await fetch("{% url 'common:update_myinfo_api' %}", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: { "Content-Type": "application/json", "X-CSRFToken": csrf },
+                body: JSON.stringify(payload)
+                // body: fd,
+            });
+            const result = await res2.json();
+            console.log("done by here")
+            console.log(result.status)
+
+            if(res2.ok && result.status == "ok")
+            {
+                // session 정보 수정
+                const rawKey = await crypto.subtle.exportKey('raw', aesKey);
+                const aesKeyB64 = btoa(String.fromCharCode(...new Uint8Array(rawKey)));
+
+                let allKeys = JSON.parse(sessionStorage.getItem('user_keys') || '{}');
+                allKeys[anon_id] = aesKeyB64;
+                sessionStorage.setItem('user_keys', JSON.stringify(allKeys));
+                
+                alert("정보가 수정되었습니다.");
+                document.getElementById("msg").textContent = "";
+            }
+            else
+            {
+                document.getElementById("msg").textContent = result.message;
+            }
+
+            
         })
 
     })();

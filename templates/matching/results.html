@@ -90,6 +90,14 @@ import {
         );
         // console.log('복원된 RSA privateKey:', privateKey);
 
+        function formatPhone(raw) {
+            raw = raw.replace(/\D/g, '');
+            if (raw.length === 11)
+                return raw.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3');
+            else if (raw.length === 10)
+                return raw.replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3');
+            return raw;
+        }
 
         // 3) 평문 각각으로 태그 생성 → 일치하는 태그 찾아 표시
         const serverSecretb64 = "{{ server_secret_b64 }}";
@@ -120,7 +128,7 @@ import {
             if (iApproved && theyApproved) {
                 const phoneBytes = await rsaDecrypt(privateKey, grantedToMeMap[anonId]);
                 const phone = new TextDecoder().decode(phoneBytes);
-                contactHTML = `<span class="contact-display">📞 ${phone}</span>`;
+                contactHTML = `<span class="contact-display">📞 ${formatPhone(phone)}</span>`;
             }
             else if (!iApproved && grantedByMe.length == 0) {
                 buttonHTML = `<button class="btn btn-sm btn-outline-primary approve-btn">승인(연락처 보내기)</button>`;
@@ -144,7 +152,7 @@ import {
         list.addEventListener('click', async e => {
             if (!e.target.classList.contains('approve-btn')) return;
             const li = e.target.closest('li');
-            const nameText = li.innerText.split("—")[0].trim(); // 이름 (또래, 마을)
+            const nameText = li.innerText.split(")")[0].trim()+")"; // 이름 (또래, 마을)
             const confirmMsg = `${nameText} 님을 승인하시겠습니까?`;
             if (!confirm(confirmMsg)) {
                 return;

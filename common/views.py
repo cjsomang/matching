@@ -1,5 +1,5 @@
 import json
-from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import render, redirect
 from django.http import HttpResponse, JsonResponse, HttpResponseBadRequest
@@ -94,22 +94,48 @@ def get_myinfo_api(request):
                         'encrypted_age': request.user.encrypted_age,
                         'encrypted_org': request.user.encrypted_org,
                         'encrypted_phone': request.user.encrypted_phone,
-                        'encrypted_privkey': request.user.encrypted_privkey})
+                        'encrypted_privkey': request.user.encrypted_privkey,
+                        'gender': request.user.gender,})
 
 @login_required(login_url='common:login')
 def update_myinfo_api(request):
     # 정보 업데이트
     if request.method != "POST":
         return JsonResponse({"error": "POST 요청만 허용"}, status=405)
-
+    
+    user = request.user
     data = json.loads(request.body)
+    current_password = data.get("password")
+    # current_password = request.POST.get("password")
+    # new_password = request.POST.get("password21","")
+    # print(new_password)
+    if not user.is_authenticated:
+        return JsonResponse({'message': '로그인이 필요합니다.'}, status=403)
+    
+    if not user.check_password(current_password):
+        return JsonResponse({"status": "error", "message": "현재 비밀번호가 일치하지 않습니다."}, status=403)
+
+    
     try:
         request.user.encrypted_name = data.get("encrypted_name", "")
         request.user.encrypted_age = data.get("encrypted_age", "")
         request.user.encrypted_org = data.get("encrypted_org", "")
         request.user.encrypted_phone = data.get("encrypted_phone", "")
+        request.user.encrypted_privkey = data.get("encrypted_privkey", "")
         request.user.profile_tag = data.get("profile_tag", "")
-        request.user.save(update_fields=["encrypted_name", "encrypted_age", "encrypted_org", "encrypted_phone", "profile_tag"])
+        new_password = data.get("password21", "")
+        if new_password and new_password.strip():  # 공백 포함 비어있는 문자열도 제외
+            request.user.set_password(new_password)
+            user.save(update_fields=[
+                "encrypted_name", "encrypted_age", "encrypted_org",
+                "encrypted_phone", "profile_tag", "password", "encrypted_privkey"
+            ])
+            update_session_auth_hash(request, user)
+        else:
+            user.save(update_fields=[
+                "encrypted_name", "encrypted_age", "encrypted_org",
+                "encrypted_phone", "profile_tag"
+            ])
         return JsonResponse({"status": "ok"})
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
