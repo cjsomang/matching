@@ -13,7 +13,7 @@ import markdown
 from common.utils import mark_func
 
 def index(request):
-    file_path = os.path.join('static', 'notice.md')  # 위치는 자유롭게
+    file_path = os.path.join(os.path.dirname(__file__), '..','static', 'notice.md')  # 위치는 자유롭게
     with open(file_path, encoding='utf-8') as f:
         md_content = f.read()
     html_content = mark_func(md_content)
