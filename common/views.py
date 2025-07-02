@@ -7,6 +7,8 @@ import os, base64
 from django.contrib.auth.decorators import login_required
 # from common.forms import UserForm
 from matching.models import User
+from common.utils import get_current_phase, phase_access_control
+from django.urls import reverse
 
 def logout_view(request):
     logout(request)
@@ -87,7 +89,7 @@ def signup(request):
     return render(request, 'common/signup.html', context)
 
 
-@login_required(login_url='common:login')
+@login_required(login_url='/common/login')
 def get_myinfo_api(request):
     # 로그인된 사용자의 저장된 암호문을 반환
     return JsonResponse({'encrypted_name': request.user.encrypted_name,
@@ -97,7 +99,8 @@ def get_myinfo_api(request):
                         'encrypted_privkey': request.user.encrypted_privkey,
                         'gender': request.user.gender,})
 
-@login_required(login_url='common:login')
+@login_required(login_url='/common/login')
+@phase_access_control
 def update_myinfo_api(request):
     # 정보 업데이트
     if request.method != "POST":
@@ -140,12 +143,15 @@ def update_myinfo_api(request):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
-@login_required(login_url='common:login')
+@login_required(login_url='/common/login')
 def myinfo_page(request):
     #내 정보 확인
     user = request.user
+    phase = get_current_phase()
+
     return render(request, 'common/info.html', {
         'server_secret_b64': User.SERVER_SECRET_B64,
         'user_salt': user.salt,
         'anon_id': user.anon_id,
+        'current_phase': phase,
     })

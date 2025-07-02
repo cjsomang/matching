@@ -8,10 +8,22 @@
         <div id="inputs">
             <!-- 3개의 입력 그룹 -->
             <div class="select-row mb-2">
-                <input name="name" class="form-control d-inline-block w-25" placeholder="이름">
-                <input name="age" class="form-control d-inline-block w-25" placeholder="또래">
+                1: 
+                <input name="name" class="form-control d-inline-block w-25" placeholder="이름" {% if current_phase != 'signup' %} disabled {% endif %}>
+                <!-- <input name="age" class="form-control d-inline-block w-25" placeholder="또래" {% if current_phase != 'signup' %} disabled {% endif %}> -->
+                <select class="form-control d-inline-block w-25" name="age" id="age" {% if current_phase != 'signup' %} disabled {% endif %}>
+                    <option value="" selected>- 또래 -</option>
+                    <option value="86">86</option>
+                    <option value="87">87</option>
+                    <option value="88">88</option>
+                    <option value="89">89</option>
+                    <option value="90">90</option>
+                    <option value="91">91</option>
+                    <option value="92">92</option>
+                    <option value="93">93</option>
+                </select>
                 <!-- <input name="org" class="form-control d-inline-block w-25" placeholder="마을"> -->
-                <select class="form-control d-inline-block w-25" name="org" id="org">
+                <select class="form-control d-inline-block w-25" name="org" id="org" {% if current_phase != 'signup' %} disabled {% endif %}>
                     <option value="" selected>-- 마을 --</option>
                     <option value="고백하는">고백하는</option>
                     <option value="보라새것">보라새것</option>
@@ -26,11 +38,23 @@
                 </select>
             </div>
             <div class="select-row mb-2">
-                <input name="name" class="form-control d-inline-block w-25" placeholder="이름">
-                <input name="age" class="form-control d-inline-block w-25" placeholder="또래">
+                2:
+                <input name="name" class="form-control d-inline-block w-25" placeholder="이름" {% if current_phase != 'signup' %} disabled {% endif %}>
+                <!-- <input name="age" class="form-control d-inline-block w-25" placeholder="또래" {% if current_phase != 'signup' %} disabled {% endif %}> -->
+                <select class="form-control d-inline-block w-25" name="age" id="age" {% if current_phase != 'signup' %} disabled {% endif %}>
+                    <option value="" selected>- 또래 -</option>
+                    <option value="86">86</option>
+                    <option value="87">87</option>
+                    <option value="88">88</option>
+                    <option value="89">89</option>
+                    <option value="90">90</option>
+                    <option value="91">91</option>
+                    <option value="92">92</option>
+                    <option value="93">93</option>
+                </select>
                 <!-- <input name="org" class="form-control d-inline-block w-25" placeholder="마을"> -->
-                <select class="form-control d-inline-block w-25" name="org" id="org">
-                    <option value="" selected>-- 마을 --</option>
+                <select class="form-control d-inline-block w-25" name="org" id="org" {% if current_phase != 'signup' %} disabled {% endif %}>
+                    <option value="" selected>- 마을 -</option>
                     <option value="고백하는">고백하는</option>
                     <option value="보라새것">보라새것</option>
                     <option value="빛이나는">빛이나는</option>
@@ -44,11 +68,23 @@
                 </select>
             </div>
             <div class="select-row mb-2">
-                <input name="name" class="form-control d-inline-block w-25" placeholder="이름">
-                <input name="age" class="form-control d-inline-block w-25" placeholder="또래">
+                3:
+                <input name="name" class="form-control d-inline-block w-25" placeholder="이름" {% if current_phase != 'signup' %} disabled {% endif %}>
+                <!-- <input name="age" class="form-control d-inline-block w-25" placeholder="또래" {% if current_phase != 'signup' %} disabled {% endif %}> -->
+                <select class="form-control d-inline-block w-25" name="age" id="age" {% if current_phase != 'signup' %} disabled {% endif %}>
+                    <option value="" selected>- 또래 -</option>
+                    <option value="86">86</option>
+                    <option value="87">87</option>
+                    <option value="88">88</option>
+                    <option value="89">89</option>
+                    <option value="90">90</option>
+                    <option value="91">91</option>
+                    <option value="92">92</option>
+                    <option value="93">93</option>
+                </select>
                 <!-- <input name="org" class="form-control d-inline-block w-25" placeholder="마을"> -->
-                <select class="form-control d-inline-block w-25" name="org" id="org">
-                    <option value="" selected>-- 마을 --</option>
+                <select class="form-control d-inline-block w-25" name="org" id="org" {% if current_phase != 'signup' %} disabled {% endif %}>
+                    <option value="" selected>- 마을 -</option>
                     <option value="고백하는">고백하는</option>
                     <option value="보라새것">보라새것</option>
                     <option value="빛이나는">빛이나는</option>
@@ -62,7 +98,7 @@
                 </select>
             </div>
         </div>
-        <button id="submit-btn" class="btn btn-primary">제출</button>
+        <button id="submit-btn" class="btn btn-primary" {% if current_phase != 'signup' %} disabled {% endif %}>제출</button>
     </form>
 
     <!-- <hr>

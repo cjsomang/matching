@@ -19,7 +19,7 @@
         </div>
         <div class="mb-2">
             <label>이름</label>
-            <input type="text" id="name" class="form-control" required>
+            <input type="text" id="name" class="form-control" required {% if current_phase != 'signup' %} disabled {% endif %}>
         </div>
         <div class="mb-2">
             <label>성별</label>
@@ -27,13 +27,24 @@
         </div>
         <div class="mb-2">
             <label>또래</label>
-            <input type="number" id="age" class="form-control" required>
+            <!-- <input type="number" id="age" class="form-control" required {% if current_phase != 'signup' %} disabled {% endif %}> -->
+            <select class="form-control" name="age" id="age" required {% if current_phase != 'signup' %} disabled {% endif %}>
+                <option value="" selected>- 또래 -</option>
+                <option value="86">86</option>
+                <option value="87">87</option>
+                <option value="88">88</option>
+                <option value="89">89</option>
+                <option value="90">90</option>
+                <option value="91">91</option>
+                <option value="92">92</option>
+                <option value="93">93</option>
+            </select>
         </div>
         <div class="mb-2">
             <label>마을</label>
             <!-- <input type="text" id="org" class="form-control" required> -->
-            <select class="form-control" name="org" id="org" required>
-                <option value="">-- 마을을 선택하세요 --</option>
+            <select class="form-control" name="org" id="org" required {% if current_phase != 'signup' %} disabled {% endif %}>
+                <option value="">- 마을 -</option>
                 <option value="고백하는">고백하는</option>
                 <option value="보라새것">보라새것</option>
                 <option value="빛이나는">빛이나는</option>
@@ -48,11 +59,11 @@
         </div>
         <div class="mb-2">
             <label>연락처</label>
-            <input type="text" id="phone" class="form-control" required>
+            <input type="text" id="phone" class="form-control" required {% if current_phase != 'signup' %} disabled {% endif %}>
         </div>
         <input name="profile_tag" id="profile_tag" hidden>
         <div id="msg" class="text-danger"></div>
-        <button type="submit" class="btn btn-primary mt-2">정보 수정</button>
+        <button type="submit" class="btn btn-primary mt-2" {% if current_phase != 'signup' %} disabled {% endif %}>정보 수정</button>
     </form>
     <form id="csrf-form">{% csrf_token %}</form>
 </div>
@@ -69,6 +80,8 @@ import {
     (async () => {
         const anon_id = "{{ anon_id }}";
         const csrf = document.querySelector('#csrf-form [name=csrfmiddlewaretoken]').value;
+
+        console.log("{{ current_phase }}");
         
 
         // 1) 로그인 시 세션에 저장된 AES 키 꺼내기 · 없으면 재로그인 유도

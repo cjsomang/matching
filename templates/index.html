@@ -1,7 +1,31 @@
 {% extends 'base.html' %}
+{% load custom_filter %}
 {% block content %}
 
 <h1>첫 페이지</h1>
+<div class="card-text" id="content1">
+    {{ text }}
+</div>
 
 
+{% endblock %}
+{% block script %}
+<script>
+(async () => {
+
+    // const markdownContent = "
+    //     ### 공지사항    
+    //     - **가입 기간**
+    //     - 남자 승인 기간
+    //     - 여자 승인 기간
+    //     - 결과 공개 기간
+    //         - 해피하게 보내세요!
+    // ";
+
+    // const htmlContent = marked.parse(markdownContent);
+    // document.getElementById('content').innerHTML = htmlContent;
+    // console.log(htmlContent);
+
+})();
+</script>
 {% endblock %}

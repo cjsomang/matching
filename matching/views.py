@@ -3,23 +3,37 @@ from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, get_object_or_404
 from django_htmx.http import HttpResponseClientRedirect
-from django.http import JsonResponse, HttpResponseBadRequest
+from django.http import JsonResponse, HttpResponseBadRequest, HttpResponseForbidden
 from .models import User, Selection, ContactGrant
+from common.utils import get_current_phase, phase_access_control
+import os
+import markdown
+# from django import template
+# from django.utils.safestring import mark_safe
+from common.utils import mark_func
 
 def index(request):
-    return render(request, 'index.html')
+    file_path = os.path.join('static', 'notice.md')  # 위치는 자유롭게
+    with open(file_path, encoding='utf-8') as f:
+        md_content = f.read()
+    html_content = mark_func(md_content)
 
-@login_required(login_url='common:login')
+    return render(request, 'index.html', {'text': html_content})
+
+@login_required
 def select_page(request):
     # 사용자가 선택 폼을 보는 페이지
     user = request.user
+    phase = get_current_phase()
     return render(request, 'matching/select.html', {
         'server_secret_b64': User.SERVER_SECRET_B64,
         'user_salt': user.salt,
         'anon_id': user.anon_id,
+        'current_phase': phase,
     })
 
-@login_required(login_url='common:login')
+@login_required
+@phase_access_control
 def select_api(request):
     if request.method != 'POST':
         return JsonResponse({'message':'POST만 허용'}, status=405)
@@ -63,22 +77,34 @@ def select_api(request):
 
     return JsonResponse({'status':'ok'})
 
-@login_required(login_url='common:login')
+@login_required
 def choices_api(request):
     # 로그인된 사용자의 저장된 선택지 암호문을 반환
     return JsonResponse({'encrypted_choices': request.user.encrypted_choices})
 
-@login_required(login_url='common:login')
+@login_required
 def results_page(request):
     # 사용자가 선택 폼을 보는 페이지
     user = request.user
+    phase = get_current_phase()
+    gender = user.gender
+    if phase == "signup" or (phase == "female_approval" and gender == "M"):
+        return render(request, 'matching/block.html', {
+            'server_secret_b64': User.SERVER_SECRET_B64,
+            'user_salt': user.salt,
+            'anon_id': user.anon_id,
+            'current_phase': phase,
+            'gender': gender,
+        })
     return render(request, 'matching/results.html', {
         'server_secret_b64': User.SERVER_SECRET_B64,
         'user_salt': user.salt,
         'anon_id': user.anon_id,
+        'current_phase': phase,
+        'gender': gender,
     })
 
-@login_required(login_url='common:login')
+@login_required
 def results_api(request):
     # 오직 여성 사용자만 접근 (예: gender == 'F')
     if request.user.gender != 'F': # 남자 사용자
@@ -136,8 +162,8 @@ def results_api(request):
 
     return JsonResponse({'matches': results})
 
-@login_required(login_url='common:login')
-def grant_contact_api(request):
+@login_required
+def grant_contact_api(request): # 승인 API
     if request.method != 'POST':
         return HttpResponseBadRequest("POST만 허용")
 
@@ -220,3 +246,16 @@ def get_granted_by_me_api(request):
     }
     return JsonResponse(result)
 
+@login_required
+def cancel_grant_api(request): # 승인 취소 API
+    if request.method != 'POST':
+        return HttpResponseBadRequest("POST만 허용")
+    
+    try:
+        deleted_count, _ = ContactGrant.objects.filter(from_user_id=request.user).delete()
+        if deleted_count == 0:
+            return JsonResponse({'error': '승인 내역이 없습니다.'}, status=404)
+        return JsonResponse({'status': 'ok'})
+
+    except Exception as e:
+        return JsonResponse({'error': f'처리 중 오류 발생: {str(e)}'}, status=500)

@@ -104,6 +104,7 @@ import {
 
         const list = document.getElementById('match-list');
         list.innerHTML = '';
+        let bAppend = false;
         for (let choice of plainChoices) {
             const tag = await hmacSign(JSON.stringify(choice), serverSecretb64);
             const cand = matches.find(m => m.profile_tag === tag);
@@ -121,34 +122,57 @@ import {
 
             let contactHTML = '';
             let buttonHTML = '';
+            let cancelButtonHTML = '';
+
+            const phase = "{{ current_phase }}"
+            const gender = "{{ gender }}"
+
+            console.log(phase);
+            console.log(gender);
+
 
             // 승인 여부에 따라 버튼 대신 연락처 채워넣기
             // 나와 상대방이 모두 승인 -> 연락처 공개
             // 나만 승인 -> 승인 버튼 비활성화
-            if (iApproved && theyApproved) {
+            if (iApproved && theyApproved && phase === "final") {
                 const phoneBytes = await rsaDecrypt(privateKey, grantedToMeMap[anonId]);
                 const phone = new TextDecoder().decode(phoneBytes);
                 contactHTML = `<span class="contact-display">📞 ${formatPhone(phone)}</span>`;
             }
-            else if (!iApproved && grantedByMe.length == 0) {
-                buttonHTML = `<button class="btn btn-sm btn-outline-primary approve-btn">승인(연락처 보내기)</button>`;
-            } else if (!theyApproved && iApproved) {
+            else if (!iApproved && grantedByMe.length === 0) {
+                if ((phase === "female_approval" && gender === "F") || (phase === "male_approval" && gender === "M")){
+                    buttonHTML = `<button class="btn btn-sm btn-outline-primary approve-btn">승인</button>`;
+                }
+                else{
+                    buttonHTML = `<button class="btn btn-sm btn-outline-primary approve-btn" disabled>승인</button>`;
+                }
+            } 
+            else if (iApproved && phase !== "final") {
                 buttonHTML = `<button class="btn btn-sm btn-outline-secondary" disabled>승인 완료</button>`;
             }            
+
+            if(iApproved && (phase === "female_approval" && gender === "F" || phase === "male_approval" && gender === "M" ))
+            {
+                cancelButtonHTML = `<button class="btn btn-sm btn-outline-primary cancel-btn">승인 취소</button>`;
+            }
 
             li.innerHTML = `
                 <div class="flex-grow-1">
                     ${choice.name} (또래: ${choice.age}, 마을: ${choice.org})    
                     ${contactHTML}
-                    ${buttonHTML}
+                    ${buttonHTML} ${cancelButtonHTML}
                 </div>
             `;
 
             list.appendChild(li);
+            bAppend = true;
+        }
+        if(!bAppend){
+            list.innerHTML = '매칭된 결과가 없습니다.';
         }
 
 
-        // 2. 연락처 버튼 클릭 시
+        // 승인 버튼 클릭 시
         list.addEventListener('click', async e => {
             if (!e.target.classList.contains('approve-btn')) return;
             const li = e.target.closest('li');
@@ -205,35 +229,40 @@ import {
             }
         });
 
-        // 상대방 연락처 받아서 복호화
-        // const res_contact = await fetch("{% url 'matching:get_granted_contact_api' %}");
-        // try {
-            // 1) POST 해서 저장 & 재암호화된 전화번호 받기
-            // const res_contact = await fetch("{% url 'matching:get_granted_contact_api' %}", {
-            //     method: 'POST',
-            //     headers: {
-            //         'Content-Type': 'application/json',
-            //         'X-CSRFToken': document
-            //             .querySelector('#csrf-form [name=csrfmiddlewaretoken]')
-            //             .value
-            //     },
-            //     body: JSON.stringify({
-            //         to_user: candidateId,
-            //         reencrypted_phone: reencrypted_phone
-            //     })
-            // });
-            // const j = await res_contact.json();
-            // if (res_contact.status !== 200 || j.status !== 'ok') {
-            //     throw new Error(j.error || 'grant 실패');
-            // }
 
-            // const plainPhone = await rsaDecrypt(privateKey, res.reencrypted_phone);
-            // document.getElementById('contact-info').textContent = `📞 연락처: ${plainPhone}`;
-        // }
-        // } catch (err) {
-        //     console.error(err);
-        //     alert('연락처 가져오기/복호화 실패');
-        // }
+        // 승인 취소 버튼 클릭 시
+        list.addEventListener('click', async e => {
+            if (!e.target.classList.contains('cancel-btn')) return;
+            const li = e.target.closest('li');
+            const nameText = li.innerText.split(")")[0].trim()+")"; // 이름 (또래, 마을)
+            const confirmMsg = `${nameText} 님의 승인을 취소하시겠습니까?`;
+            if (!confirm(confirmMsg)) {
+                return;
+            }
+
+            const candidateId = li.dataset.anon;
+            // console.log("상대방 anon_id: ", candidateId);
+
+            // API 호출
+            try {
+                const res = await fetch("{% url 'matching:cancel_grant_api' %}", {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+                body: JSON.stringify({ to_user: candidateId })
+            });
+
+            if (res.ok) {
+                // 승인 성공 → 화면 새로고침
+                location.reload();
+            } else {
+                alert("승인 취소에 실패했습니다.");
+            }
+
+            } catch (err) {
+                console.error("처리 실패", err);
+                // alert("연락처를 가져오는 데 실패했습니다.");
+            }
+        });
 
     })();
 </script>

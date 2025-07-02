@@ -12,6 +12,7 @@ urlpatterns = [
     path('result/api', views.results_api, name='results_api'),
     # path('contact/api', views.get_contact_api, name='get_contact_api'),
     path('contact/grant/api', views.grant_contact_api, name='grant_contact_api'),
+    path('contact/cancel/api', views.cancel_grant_api, name='cancel_grant_api'),
     path('contact/get/api', views.get_granted_contact_api, name='get_granted_contact_api'),
     path('contact/mine/api', views.get_granted_by_me_api, name='get_granted_by_me_api'),
 

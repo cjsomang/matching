@@ -140,3 +140,6 @@ AUTH_USER_MODEL = 'matching.User'
 
 mimetypes.add_type("application/javascript", ".js", True)
 mimetypes.add_type("application/wasm", ".wasm", True)
+
+
+LOGIN_URL = '/common/login/'

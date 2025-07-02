@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% load static %}
+{% block content %}
+<div class="container my-3">
+    <h2>매칭 결과</h2>
+    <div id="no-matches" class="text-muted">
+        {% if current_phase == 'signup' %} 선택 기간에는 확인할 수 없습니다. {% elif gender == "M" %} 지금은 여성만 확인할 수 있습니다. {% endif %}</div>
+    <form id="csrf-form">{% csrf_token %}</form>
+</div>
+{% endblock %}
+
+{% block script %}
+<script type="module">
+import {
+    hmacSign,
+    generateRsaKeyPair, exportRsaPublicKey, importRsaPublicKey,
+    rsaEncrypt, rsaDecrypt,
+    deriveAesKey, aesEncrypt, aesDecrypt, getAesKey
+} from "{% static 'crypto_utils.js' %}";    
+    (async () => {
+        const anon_id = "{{ anon_id }}";
+        const csrf = document.querySelector('#csrf-form [name=csrfmiddlewaretoken]').value;
+        console.log("{{ current_phase }}");
+
+    })();
+</script>
+{% endblock %}
