@@ -154,6 +154,7 @@ export async function aesDecrypt(b64Data, key) {
 /**
  * get aes key
  * @param {string} anon_id
+ * @param {string} login_url
  * @returns {CryptoKey} plaintext
  */
 export async function getAesKey(anon_id) {
@@ -161,7 +162,8 @@ export async function getAesKey(anon_id) {
     const encryptedPriv = allKeys[anon_id];
     if (!encryptedPriv) {
         alert("세션 만료: 다시 로그인해주세요.");
-        window.location.href = "{% url 'common:login' %}";
+        // window.location.href = login_url;
+        window.location.href = "/common/login/";
         throw new Error("AES 키 없음");
     }
     const raw = Uint8Array.from(atob(encryptedPriv), c => c.charCodeAt(0));

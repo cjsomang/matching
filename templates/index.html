@@ -1,31 +1,28 @@
 {% extends 'base.html' %}
 {% load custom_filter %}
+{% load static %}
+{% load csp %}
 {% block content %}
 
-<h1>첫 페이지</h1>
-<div class="card-text" id="content1">
-    {{ text }}
+<h1>공지사항</h1>
+<div class="card-text" id="content">
+    <p><h3> 현재는 <span class="text-success">{{ phase }}</span> 기간입니다. </h3></p>
+    <!-- {{ text }} -->
+</div>
+<div class="card-text" id="content">
+    <p><h3> 기간 안내 </h3>
+    <ul id="phase-list"></ul>
+    </p>
 </div>
 
 
 {% endblock %}
+
 {% block script %}
-<script>
-(async () => {
 
-    // const markdownContent = "
-    //     ### 공지사항    
-    //     - **가입 기간**
-    //     - 남자 승인 기간
-    //     - 여자 승인 기간
-    //     - 결과 공개 기간
-    //         - 해피하게 보내세요!
-    // ";
+{% script type="module" %}
+import { loadAndRenderPhases } from "/static/phase_info.js";
+loadAndRenderPhases();
+{% endscript %}
 
-    // const htmlContent = marked.parse(markdownContent);
-    // document.getElementById('content').innerHTML = htmlContent;
-    // console.log(htmlContent);
-
-})();
-</script>
 {% endblock %}

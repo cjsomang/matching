@@ -14,7 +14,7 @@
             <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                 {% if user.is_authenticated %}
                 <li class="nav-item">
-                    <a class="nav-link" href="{% url 'common:logout' %}">{{ user.encrypted_name }} (로그아웃) </a>
+                    <a class="nav-link" href="{% url 'common:logout' %}">로그아웃 </a>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link" href="{% url 'common:myinfo_page' %}">내 정보</a>
@@ -33,6 +33,9 @@
                     <a class="nav-link" href="{% url 'common:signup' %}">회원가입</a>
                 </li>
                 {% endif %}
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'common:guide' %}">이용안내</a>
+                </li>
             </ul>
         </div>
     </div>

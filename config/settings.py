@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 from pathlib import Path
 import os
 import environ
+from csp.constants import NONCE
 import mimetypes
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -47,6 +48,8 @@ INSTALLED_APPS = [
     'matching.apps.MatchingConfig',
     'common.apps.CommonConfig',
     'django_htmx',
+    'corsheaders',
+    'csp'
 ]
 
 MIDDLEWARE = [
@@ -57,6 +60,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
+    'csp.middleware.CSPMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -138,8 +143,36 @@ LOGIN_REDIRECT_URL = '/'
 
 AUTH_USER_MODEL = 'matching.User'
 
-mimetypes.add_type("application/javascript", ".js", True)
-mimetypes.add_type("application/wasm", ".wasm", True)
 
+# CORS 설정 - 허용된 출처만 지정 (예: 자기 웹 도메인)
+CORS_ALLOWED_ORIGINS = [
+    "https://cjsomang.pythonanywhere.com",
+]
+
+# csp 설정
+CONTENT_SECURITY_POLICY = {
+    'DIRECTIVES': {
+        'default-src': ("'self'",),
+        'script-src': ("'self'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com", "https://unpkg.com", NONCE),
+        'style-src': ("'self'","https://fonts.googleapis.com","'sha256-bsV5JivYxvGywDAZ22EZJKBFip65Ng9xoJVLbBg7bdo='"),
+        'font-src': ("'self'","https://fonts.googleapis.com",),
+        'img-src': ("'self'", "data:"),     # 이미지 데이터 URI 허용
+        'object-src': ("'none'",),         # Flash, Java 등 차단
+        'base-uri': ("'self'",),           # base 태그로부터의 공격 방지
+        'frame-ancestors': ("'none'",),    # iframe 삽입 금지
+    }
+}
 
 LOGIN_URL = '/common/login/'
+
+# https 설정
+SECURE_SSL_REDIRECT = False # 개발 중 False
+# SECURE_SSL_REDIRECT = True # 개발 중 False
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+
+
+# 개발 모드 설정
+MODE = 'Debug' # Debug or Real
+# DEBUG_PHASE = "female_approval" # defined in phases.json
+DEBUG_PHASE = "signup" # defined in phases.json

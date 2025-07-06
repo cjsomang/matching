@@ -1,14 +1,14 @@
 import json
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
-from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import render, redirect
 from django.http import HttpResponse, JsonResponse, HttpResponseBadRequest
 import os, base64
 from django.contrib.auth.decorators import login_required
-# from common.forms import UserForm
-from matching.models import User
+from matching.models import User, Selection, ContactGrant
 from common.utils import get_current_phase, phase_access_control
 from django.urls import reverse
+import markdown
+from common.utils import mark_func, print_phase
 
 def logout_view(request):
     logout(request)
@@ -28,11 +28,11 @@ def login_page(request):
             return JsonResponse({'status':'ok', 'redirect': '/', 'user_salt': user.salt})
         return JsonResponse({'status':'error','message':'아이디/비밀번호 불일치'}, status=401)
     context = {
-        'server_secret_b64': User.SERVER_SECRET_B64,  # settings에서 base64로 제공
+        'server_secret_b64': User.SERVER_SECRET_B64,
     }
     return render(request, 'common/login.html', context)
     
-@csrf_exempt # fetch 사용 시 필요 (단, 보안을 위해 CSRF 토큰은 JS에서 함께 전달)
+
 def signup(request):
     if request.method == "POST":
         try:
@@ -49,6 +49,9 @@ def signup(request):
             return JsonResponse({"status": "error", "message": "필수 항목 누락"}, status=400)
 
         anon_id = data['anon_id']
+        if User.objects.filter(anon_id=anon_id).exists():
+            return JsonResponse({'status': 'error', 'message': '이미 존재하는 회원입니다.'}, status=400)
+        
         password = data['password']
         gender = data['gender']
         public_key = data['public_key']
@@ -58,6 +61,9 @@ def signup(request):
         encrypted_org = data['encrypted_org']
         encrypted_phone = data['encrypted_phone']
         profile_tag = data['profile_tag']
+        if User.objects.filter(profile_tag=profile_tag).exists():
+            return JsonResponse({'status': 'error', 'message': '이미 존재하는 회원입니다.'}, status=400)
+
         salt = data['salt']
 
         User.objects.create_user(
@@ -87,6 +93,16 @@ def signup(request):
         'user_salt': user_salt,
     }
     return render(request, 'common/signup.html', context)
+
+def guide(request):
+    file_path = os.path.join(os.path.dirname(__file__), '..','static', 'guide.md')  # 위치는 자유롭게
+    with open(file_path, encoding='utf-8') as f:
+        md_content = f.read()
+    html_content = mark_func(md_content)
+    phase = get_current_phase()
+    # print_phase(phase)
+
+    return render(request, 'common/guide.html', {'text': html_content, 'phase': print_phase(phase)})
 
 
 @login_required(login_url='/common/login')
@@ -142,6 +158,37 @@ def update_myinfo_api(request):
         return JsonResponse({"status": "ok"})
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
+
+@login_required(login_url='/common/login')
+@phase_access_control
+def delete_myinfo_api(request):
+    # 정보 업데이트
+    if request.method != "POST":
+        return JsonResponse({"error": "POST 요청만 허용"}, status=405)
+    
+    user = request.user
+    data = json.loads(request.body)
+    current_password = data.get("password")
+    # current_password = request.POST.get("password")
+    # new_password = request.POST.get("password21","")
+    # print(new_password)
+    if not user.is_authenticated:
+        return JsonResponse({'message': '로그인이 필요합니다.'}, status=403)
+    
+    if not user.check_password(current_password):
+        return JsonResponse({"status": "error", "message": "현재 비밀번호가 일치하지 않습니다."}, status=403)
+
+    try:
+        # User, Selection, ContactGrant 데이터 삭제
+        Selection.objects.filter(from_user_id=request.user).delete()
+        ContactGrant.objects.filter(from_user_id=request.user).delete()
+        
+        user.delete()
+        logout(request)
+        
+        return JsonResponse({"status": "ok", "redirect": "/"})
+    except Exception as e:
+        return JsonResponse({"status": "error", "message": str(e)}, status=500)
 
 @login_required(login_url='/common/login')
 def myinfo_page(request):

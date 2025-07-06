@@ -10,7 +10,7 @@
 {% endblock %}
 
 {% block script %}
-<script type="module">
+<!-- <script type="module">
 import {
     hmacSign,
     generateRsaKeyPair, exportRsaPublicKey, importRsaPublicKey,
@@ -20,8 +20,8 @@ import {
     (async () => {
         const anon_id = "{{ anon_id }}";
         const csrf = document.querySelector('#csrf-form [name=csrfmiddlewaretoken]').value;
-        console.log("{{ current_phase }}");
+        // console.log("{{ current_phase }}");
 
     })();
-</script>
+</script> -->
 {% endblock %}

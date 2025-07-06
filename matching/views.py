@@ -1,11 +1,10 @@
 import json
-from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, get_object_or_404
 from django_htmx.http import HttpResponseClientRedirect
 from django.http import JsonResponse, HttpResponseBadRequest, HttpResponseForbidden
 from .models import User, Selection, ContactGrant
-from common.utils import get_current_phase, phase_access_control
+from common.utils import get_current_phase, phase_access_control, print_phase
 import os
 import markdown
 # from django import template
@@ -17,8 +16,10 @@ def index(request):
     with open(file_path, encoding='utf-8') as f:
         md_content = f.read()
     html_content = mark_func(md_content)
+    phase = get_current_phase()
+    print_phase(phase)
 
-    return render(request, 'index.html', {'text': html_content})
+    return render(request, 'index.html', {'text': html_content, 'phase': print_phase(phase)})
 
 @login_required
 def select_page(request):
@@ -157,7 +158,6 @@ def results_api(request):
             # 'encrypted_org': candidate.encrypted_org,
             'profile_tag' : candidate.profile_tag,
             'public_key': candidate.public_key,
-            # 후보 연락처 암호문은 별도로 제공되지 않음; 사용자 요청 시 공개 (아래 재암호화 프로세스 사용)
         })
 
     return JsonResponse({'matches': results})

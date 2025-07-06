@@ -8,8 +8,8 @@
         <!-- Bootstrap CSS -->
         <link rel="stylesheet" type="text/css" href="{% static 'bootstrap.min.css' %}">
         <!-- pybo CSS -->
-        <title>Matching Project</title>
-        <script src="https://unpkg.com/htmx.org@1.9.2"></script>
+        <title>Adelphos 218</title>
+        <script src="{% static 'htmx.min.js' %}"></script>
     </head>
     <body>
         <!-- 네비게이션바 -->
@@ -20,7 +20,7 @@
         <!-- 기본 템플릿 안에 삽입될 내용 End -->
         <!-- Bootstrap JS -->
         <script src="{% static 'bootstrap.min.js' %}"></script>
-        <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+        <!-- <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script> -->
         <!-- 자바스크립트 Start -->
         {% block script %}
         {% endblock %}

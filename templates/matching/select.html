@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load static %}
+{% load csp %}
 {% block content %}
 <div class="container my-3">
     <h2>상대 3명까지 선택</h2>
@@ -10,215 +11,52 @@
             <div class="select-row mb-2">
                 1: 
                 <input name="name" class="form-control d-inline-block w-25" placeholder="이름" {% if current_phase != 'signup' %} disabled {% endif %}>
-                <!-- <input name="age" class="form-control d-inline-block w-25" placeholder="또래" {% if current_phase != 'signup' %} disabled {% endif %}> -->
-                <select class="form-control d-inline-block w-25" name="age" id="age" {% if current_phase != 'signup' %} disabled {% endif %}>
+                <select class="form-control d-inline-block w-25 age-select" name="age" id="age" {% if current_phase != 'signup' %} disabled {% endif %}>
                     <option value="" selected>- 또래 -</option>
-                    <option value="86">86</option>
-                    <option value="87">87</option>
-                    <option value="88">88</option>
-                    <option value="89">89</option>
-                    <option value="90">90</option>
-                    <option value="91">91</option>
-                    <option value="92">92</option>
-                    <option value="93">93</option>
                 </select>
-                <!-- <input name="org" class="form-control d-inline-block w-25" placeholder="마을"> -->
-                <select class="form-control d-inline-block w-25" name="org" id="org" {% if current_phase != 'signup' %} disabled {% endif %}>
-                    <option value="" selected>-- 마을 --</option>
-                    <option value="고백하는">고백하는</option>
-                    <option value="보라새것">보라새것</option>
-                    <option value="빛이나는">빛이나는</option>
-                    <option value="싹이트는">싹이트는</option>
-                    <option value="사랑팀">사랑팀</option>
-                    <option value="주는사랑">주는사랑</option>
-                    <option value="하나되는">하나되는</option>
-                    <option value="그루터기">그루터기</option>
-                    <option value="사랑하는">사랑하는(국팀)</option>
-                    <option value="간사">간사</option>
+                <select class="form-control d-inline-block w-25 org-select" name="org" id="org" {% if current_phase != 'signup' %} disabled {% endif %}>
+                    <option value="" selected>- 마을 -</option>
                 </select>
             </div>
             <div class="select-row mb-2">
                 2:
                 <input name="name" class="form-control d-inline-block w-25" placeholder="이름" {% if current_phase != 'signup' %} disabled {% endif %}>
-                <!-- <input name="age" class="form-control d-inline-block w-25" placeholder="또래" {% if current_phase != 'signup' %} disabled {% endif %}> -->
-                <select class="form-control d-inline-block w-25" name="age" id="age" {% if current_phase != 'signup' %} disabled {% endif %}>
+                <select class="form-control d-inline-block w-25 age-select" name="age" id="age" {% if current_phase != 'signup' %} disabled {% endif %}>
                     <option value="" selected>- 또래 -</option>
-                    <option value="86">86</option>
-                    <option value="87">87</option>
-                    <option value="88">88</option>
-                    <option value="89">89</option>
-                    <option value="90">90</option>
-                    <option value="91">91</option>
-                    <option value="92">92</option>
-                    <option value="93">93</option>
                 </select>
-                <!-- <input name="org" class="form-control d-inline-block w-25" placeholder="마을"> -->
-                <select class="form-control d-inline-block w-25" name="org" id="org" {% if current_phase != 'signup' %} disabled {% endif %}>
+                <select class="form-control d-inline-block w-25 org-select" name="org" id="org" {% if current_phase != 'signup' %} disabled {% endif %}>
                     <option value="" selected>- 마을 -</option>
-                    <option value="고백하는">고백하는</option>
-                    <option value="보라새것">보라새것</option>
-                    <option value="빛이나는">빛이나는</option>
-                    <option value="싹이트는">싹이트는</option>
-                    <option value="사랑팀">사랑팀</option>
-                    <option value="주는사랑">주는사랑</option>
-                    <option value="하나되는">하나되는</option>
-                    <option value="그루터기">그루터기</option>
-                    <option value="사랑하는">사랑하는(국팀)</option>
-                    <option value="간사">간사</option>
                 </select>
             </div>
             <div class="select-row mb-2">
                 3:
                 <input name="name" class="form-control d-inline-block w-25" placeholder="이름" {% if current_phase != 'signup' %} disabled {% endif %}>
-                <!-- <input name="age" class="form-control d-inline-block w-25" placeholder="또래" {% if current_phase != 'signup' %} disabled {% endif %}> -->
-                <select class="form-control d-inline-block w-25" name="age" id="age" {% if current_phase != 'signup' %} disabled {% endif %}>
+                <select class="form-control d-inline-block w-25 age-select" name="age" id="age" {% if current_phase != 'signup' %} disabled {% endif %}>
                     <option value="" selected>- 또래 -</option>
-                    <option value="86">86</option>
-                    <option value="87">87</option>
-                    <option value="88">88</option>
-                    <option value="89">89</option>
-                    <option value="90">90</option>
-                    <option value="91">91</option>
-                    <option value="92">92</option>
-                    <option value="93">93</option>
                 </select>
-                <!-- <input name="org" class="form-control d-inline-block w-25" placeholder="마을"> -->
-                <select class="form-control d-inline-block w-25" name="org" id="org" {% if current_phase != 'signup' %} disabled {% endif %}>
+                <select class="form-control d-inline-block w-25 org-select" name="org" id="org" {% if current_phase != 'signup' %} disabled {% endif %}>
                     <option value="" selected>- 마을 -</option>
-                    <option value="고백하는">고백하는</option>
-                    <option value="보라새것">보라새것</option>
-                    <option value="빛이나는">빛이나는</option>
-                    <option value="싹이트는">싹이트는</option>
-                    <option value="사랑팀">사랑팀</option>
-                    <option value="주는사랑">주는사랑</option>
-                    <option value="하나되는">하나되는</option>
-                    <option value="그루터기">그루터기</option>
-                    <option value="사랑하는">사랑하는(국팀)</option>
-                    <option value="간사">간사</option>
                 </select>
             </div>
         </div>
         <button id="submit-btn" class="btn btn-primary" {% if current_phase != 'signup' %} disabled {% endif %}>제출</button>
     </form>
 
-    <!-- <hr>
-    <h3>내 선택 보기</h3>
-    <ul id="my-selections"></ul> -->
 </div>
 {% endblock %}
 
 {% block script %}
-<script type="module">
-import {
-    hmacSign,
-    generateRsaKeyPair, exportRsaPublicKey,
-    rsaEncrypt,
-    deriveAesKey, aesEncrypt, aesDecrypt, getAesKey
-} from "{% static 'crypto_utils.js' %}";
-    (async () => {
-        // 서버에서 전달받은 HMAC에 사용할 serverSecret (변경 없음)
-        const serverSecretB64 = "{{ server_secret_b64 }}";
-        // const serverSecret = Uint8Array.from(atob(serverSecretB64), c => c.charCodeAt(0));
 
-        // 0) salt 값
-        // const userSaltB64 = "{{ user_salt }}";
-        // const salt = Uint8Array.from(atob(userSaltB64), c => c.charCodeAt(0));
-        const anon_id = "{{ anon_id }}";
+{% script type="module" %}
+import { renderSelect } from "/static/select.js";
+renderSelect({
+    serverSecretB64: "{{ server_secret_b64 }}",
+    anon_id: "{{ anon_id }}", 
+    org_json: "{% static 'data/orgs.json' %}",
+    age_json: "{% static 'data/ages.json' %}",
+    matching_choices_api: "{% url 'matching:choices_api' %}",
+    matching_select_api: "{% url 'matching:select_api' %}",
+});
+{% endscript %}
 
-        const form = document.getElementById('select-form');
-        const list = document.getElementById('my-selections');
-
-        const csrf = form.querySelector('[name=csrfmiddlewaretoken]').value;
-
-        // 1) 로그인 시 세션에 저장된 AES 키 꺼내기 · 없으면 재로그인 유도
-
-        // 2) 저장된 encrypted_choices 불러와 복호화해 표시
-        async function loadChoices(anon_id) {
-            const key = await getAesKey(anon_id);
-            const res = await fetch("{% url 'matching:choices_api' %}");
-            if (!res.ok) return;
-            const { encrypted_choices } = await res.json();
-            if (!encrypted_choices) {
-            // list.innerHTML = "<li class='text-muted'>선택한 결과가 없습니다.</li>";
-            return;
-            }
-            const plain = JSON.parse(await aesDecrypt(encrypted_choices, key));
-            // list.innerHTML = plain.map(o =>
-            // `<li>${o.name}, ${o.age}, ${o.org}</li>`
-            // ).join('');
-            const rows = document.querySelectorAll('.select-row');
-
-            plain.forEach((choice, i) => {
-                if (i >= rows.length) return;
-                const row = rows[i];
-                row.querySelector('[name=name]').value = choice.name;
-                row.querySelector('[name=age]').value = choice.age;
-                row.querySelector('[name=org]').value = choice.org;
-            });
-        }
-        await loadChoices(anon_id);
-
-        
-        // 3) 폼 제출: 입력값 수집→암호화→서버 저장→화면 갱신
-        form.addEventListener('submit', async e => {
-            e.preventDefault();
-            const key = await getAesKey(anon_id);
-            // 3개 입력 그룹에서 데이터 수집
-            const rows = document.querySelectorAll('.select-row');
-            const choices = [];
-            for (let r of rows) {
-                const name = r.querySelector('[name=name]').value.trim();
-                const age = r.querySelector('[name=age]').value.trim();
-                const org = r.querySelector('[name=org]').value.trim();
-
-                const hasAny = name || age || org;
-                const hasAll = name && age && org;
-                
-                // 빈 칸이 있으면 저장 불가
-                if (hasAny && !hasAll) {
-                    alert("후보의 이름, 또래, 마을은 모두 입력하세요.");
-                    return;
-                }
-                if (hasAll) {
-                    choices.push({ name:name, age:age, org:org });
-                }
-            }
-            if (choices.length < 1 || choices.length > 3) {
-                alert("후보는 1~3명 입력하세요.");
-                return;
-            }
-
-            
-            const tags = await Promise.all(
-                choices.map(c => hmacSign(JSON.stringify(c), serverSecretB64))
-            );
-            // console.log("tags", tags);  // Base64 문자열 3개?
-
-            const encrypted = await aesEncrypt(JSON.stringify(choices), key);
-            const res = await fetch("{% url 'matching:select_api' %}", {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
-                body: JSON.stringify({ tags: tags, encrypted_choices: encrypted })
-            });
-            if (!res.ok) {
-                // const text = await res.message();
-                // console.error("서버 응답 오류:", text);
-                // alert("저장 실패: " + text);
-                // return;
-
-                // 가능한 에러 포맷(json or text) 모두 시도해 봅니다.
-                let errMsg = await res.text();
-                try {
-                    const obj = await res.json();
-                    errMsg = obj.message || errMsg;
-                } catch {}
-                console.error("서버 응답 오류:", errMsg);
-                alert("저장 실패: " + errMsg);
-                return;
-            }
-            alert("선택이 저장되었습니다.");
-            await loadChoices(anon_id);
-        });
-    })();
-</script>
 {% endblock %}
