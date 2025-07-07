@@ -18,9 +18,12 @@ def _load_conf():
 
 # 2) 현재 phase 판별 (KST)
 def get_current_phase():
-    if(settings.MODE == "Debug"):
+    # print(settings.DEBUG)
+    if(settings.DEBUG is True):
+        # print("DEBUG")
         return settings.DEBUG_PHASE
     else:
+        # print("REAL")
         now = datetime.now(pytz.timezone('Asia/Seoul'))
         conf = _load_conf()
         for phase, period in conf.items():

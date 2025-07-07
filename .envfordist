@@ -1,0 +1,17 @@
+# secret key
+SECRET_KEY=ug_kqaatojef-clc!-(q60=b(qb@tjolz78+6o+b4@xn790pz(
+SERVER_SECRET_B64=Lr7S/6IB9YfHEvqCSRdnbYtZMR2bZ2mkAYoEUtDUk3c=
+# Host 설정
+ALLOWED_HOSTS=localhost,127.0.0.1,cjsomang.pythonanywhere.com
+CORS_ALLOWED_ORIGINS=https://cjsomang.pythonanywhere.com
+
+# DB 설정
+DB_NAME=matchingdb
+DB_USER=cjsomang
+DB_PASSWORD=server
+DB_HOST=localhost
+DB_PORT=5432
+
+# Debug 설정
+DEBUG=False
+DEBUG_PHASE=signup

@@ -24,16 +24,20 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-+lo6rvz_t4&-6(l8u_=d7y@9%#)0$5^30!9r*&xki1q%3+=d^4'
-env = environ.Env()
+env = environ.Env(
+    DEBUG=(bool, False),
+)
 environ.Env.read_env(BASE_DIR/'.env')
+SECRET_KEY = env("SECRET_KEY", default="unsafe-secret-dev-only")
 SERVER_SECRET_B64 = env('SERVER_SECRET_B64')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# DEBUG = True
+DEBUG = env('DEBUG')
 
 # ALLOWED_HOSTS = []
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '[::1]', '.pythonanywhere.com']
+# ALLOWED_HOSTS = ['localhost', '127.0.0.1', '[::1]', '.pythonanywhere.com']
+ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
 
 
 # Application definition
@@ -87,13 +91,22 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.sqlite3',
+#         'NAME': BASE_DIR / 'db.sqlite3',
+#     }
+# }
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': env('DB_NAME'),
+        'USER': env('DB_USER'),
+        'PASSWORD': env('DB_PASSWORD'),
+        'HOST': env('DB_HOST'),
+        'PORT': env('DB_PORT'),
     }
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
@@ -145,9 +158,9 @@ AUTH_USER_MODEL = 'matching.User'
 
 
 # CORS 설정 - 허용된 출처만 지정 (예: 자기 웹 도메인)
-CORS_ALLOWED_ORIGINS = [
+CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[
     "https://cjsomang.pythonanywhere.com",
-]
+])
 
 # csp 설정
 CONTENT_SECURITY_POLICY = {
@@ -166,13 +179,11 @@ CONTENT_SECURITY_POLICY = {
 LOGIN_URL = '/common/login/'
 
 # https 설정
-SECURE_SSL_REDIRECT = False # 개발 중 False
-# SECURE_SSL_REDIRECT = True # 개발 중 False
+SECURE_SSL_REDIRECT = env.bool("SECURE_SSL_REDIRECT", default=not DEBUG)
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 
 
 # 개발 모드 설정
-MODE = 'Debug' # Debug or Real
 # DEBUG_PHASE = "female_approval" # defined in phases.json
 DEBUG_PHASE = "signup" # defined in phases.json

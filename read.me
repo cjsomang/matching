@@ -1,0 +1,5 @@
+# django secretkey 생성
+python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+
+# HMAC secretkey 생성
+python -c "import os, base64; print(base64.b64encode(os.urandom(32)).decode())"
