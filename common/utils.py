@@ -12,6 +12,7 @@ def _load_conf():
     global _conf
     if _conf is None:
         path = os.path.join(settings.BASE_DIR, "static", "data",'phases.json')
+        print(f"Attempting to read file from: {path}")
         with open(path, encoding='utf-8') as f:
             _conf = json.load(f)
     return _conf
