@@ -17,9 +17,9 @@ def index(request):
         md_content = f.read()
     html_content = mark_func(md_content)
     phase = get_current_phase()
-    print_phase(phase)
+    # print_phase(phase)
 
-    return render(request, 'index.html', {'text': html_content, 'phase': print_phase(phase)})
+    return render(request, 'index.html', {'text': html_content, 'phase': print_phase(phase), 'org_phase': phase})
 
 @login_required
 def select_page(request):
