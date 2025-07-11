@@ -1,5 +1,5 @@
 .env
-.envfordist
+.envdist
 db.sqlite3
 __pycache__
 .venv
