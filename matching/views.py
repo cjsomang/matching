@@ -19,7 +19,7 @@ def index(request):
     phase = get_current_phase()
     # print_phase(phase)
 
-    return render(request, 'index.html', {'text': html_content, 'phase': print_phase(phase), 'org_phase': phase})
+    return render(request, 'index.html', {'text': html_content, 'phase': print_phase(phase)})
 
 @login_required
 def select_page(request):
