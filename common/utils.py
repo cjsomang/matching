@@ -32,6 +32,10 @@ def get_current_phase():
             end   = datetime.fromisoformat(period['end'])
             if start <= now <= end:
                 return phase
+            elif now < start:
+                return 'signup'
+            else:
+                return 'final'
     return None
 
 # 3) 접근 제어 데코레이터
