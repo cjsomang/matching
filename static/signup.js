@@ -15,7 +15,7 @@ export async function renderSignup({
 
     const phoneInput = document.getElementById('phone');
     phoneInput.addEventListener('input', () => {
-        const raw = phoneInput.value.replace(/\D/g, '');
+        const raw = phoneInput.value.replace(/\D/g, '').slice(0, 11);
         let formatted = raw;
         if (raw.length <= 3) formatted = raw;
         else if (raw.length <= 7) formatted = raw.replace(/(\d{3})(\d+)/, '$1-$2');

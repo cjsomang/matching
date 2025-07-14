@@ -1,0 +1,14 @@
+{% extends "admin/change_list.html" %}
+{% load i18n %}
+
+{% block content %}
+  <h1>📊 매칭 통계 대시보드</h1>
+  <!-- <div style="margin: 1em 0;"> -->
+  <div class="card-text">
+    <p>1. 가입 회원수 - 남자: {{ total_male }}, 여자: {{ total_female }}</p>
+    <p>2. 상호 매칭된 후보 수: {{ mutual_tags }}</p>
+    <p>3. 최종 매칭된 커플 수: {{ couple_count }}</p>
+  </div>
+
+
+{% endblock %}

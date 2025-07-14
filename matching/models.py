@@ -1,14 +1,14 @@
 from django.conf import settings
 from django.db import models
 from django.contrib.auth.models import (AbstractBaseUser, PermissionsMixin, BaseUserManager)
-
+import os, base64
 
 
 class UserManager(BaseUserManager):
     def create_user(self, anon_id, password=None, gender=None,
                     public_key=None, encrypted_privkey=None, encrypted_name=None,
                     encrypted_age=None, encrypted_org=None,
-                    encrypted_phone=None, profile_tag=None, encrypted_choices=None, salt=None):
+                    encrypted_phone=None, profile_tag=None, encrypted_choices=None, salt=None, **extra_fields):
         if not anon_id:
             raise ValueError("anon_id는 필수입니다")
         # extra_fields.setdefault('salt', base64.b64encode(os.urandom(16)).decode())
@@ -23,6 +23,7 @@ class UserManager(BaseUserManager):
             encrypted_phone=encrypted_phone,
             profile_tag=profile_tag,
             salt=salt,
+            **extra_fields
         )
         user.set_password(password)
         user.save()
@@ -31,6 +32,17 @@ class UserManager(BaseUserManager):
     def create_superuser(self, anon_id, password=None, **extra_fields):
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
+        extra_fields.setdefault('salt', "X")
+        extra_fields.setdefault('gender', "X")
+        extra_fields.setdefault('public_key', "X")
+        extra_fields.setdefault('encrypted_privkey', "X")
+        extra_fields.setdefault('encrypted_name', "X")
+        extra_fields.setdefault('encrypted_age', "X")
+        extra_fields.setdefault('encrypted_org', "X")
+        extra_fields.setdefault('encrypted_phone', "X")
+        extra_fields.setdefault('profile_tag', "X")
+        extra_fields.setdefault('encrypted_choices', "X")
+
         return self.create_user(anon_id, password, **extra_fields)
 
 class User(AbstractBaseUser, PermissionsMixin):
@@ -47,6 +59,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     encrypted_phone = models.TextField()    
     profile_tag    = models.CharField(max_length=64, unique=True)
     encrypted_choices = models.TextField(blank=True, null=True)
+    is_staff = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
 
     USERNAME_FIELD = 'anon_id'
     REQUIRED_FIELDS = []
@@ -68,3 +82,9 @@ class ContactGrant(models.Model):
 
     class Meta:
         unique_together = ('from_user', 'to_user')
+
+class Stats(User):
+    class Meta:
+        proxy = True
+        verbose_name = "통계 대시보드"
+        verbose_name_plural = "통계 대시보드"

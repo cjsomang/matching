@@ -40,7 +40,7 @@
         </div>
         <div class="mb-2">
             <label>연락처</label>
-            <input type="text" id="phone" class="form-control" required {% if current_phase != 'signup' %} disabled {% endif %}>
+            <input type="text" id="phone" class="form-control" maxlength="13" pattern="\d{3}-\d{4}-\d{4}" required {% if current_phase != 'signup' %} disabled {% endif %}>
         </div>
         <input name="profile_tag" id="profile_tag" hidden>
         <div id="msg" class="text-danger"></div>

@@ -186,4 +186,5 @@ CSRF_COOKIE_SECURE = True
 
 # 개발 모드 설정
 # DEBUG_PHASE = "female_approval" # defined in phases.json
-DEBUG_PHASE = "signup" # defined in phases.json
+# DEBUG_PHASE = "signup" # defined in phases.json
+DEBUG_PHASE = env('DEBUG_PHASE')
