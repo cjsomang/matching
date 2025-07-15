@@ -14,8 +14,8 @@
 
 {% block script %}
 
-{% script type="module" %}
-import { renderResults } from "/static/results.js";
+<script type="module" nonce="{{ request.csp_nonce }}">
+import { renderResults } from "{% static 'results.js' %}";
 renderResults({
     serverSecretB64: "{{ server_secret_b64 }}",
     anon_id: "{{ anon_id }}", 
@@ -29,6 +29,6 @@ renderResults({
     matching_get_granted_contact_api: "{% url 'matching:get_granted_contact_api' %}",
     common_get_myinfo_api: "{% url 'common:get_myinfo_api' %}",
 });
-{% endscript %}
+</script>
 
 {% endblock %}

@@ -21,9 +21,9 @@
 
 {% block script %}
 
-{% script type="module" %}
-import { loadAndRenderPhases } from "/static/phase_info.js";
+<script type="module" nonce="{{ request.csp_nonce }}">
+import { loadAndRenderPhases } from "{% static 'phase_info.js' %}";
 loadAndRenderPhases();
-{% endscript %}
+</script>
 
 {% endblock %}

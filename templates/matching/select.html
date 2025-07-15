@@ -46,9 +46,8 @@
 {% endblock %}
 
 {% block script %}
-
-{% script type="module" %}
-import { renderSelect } from "/static/select.js";
+<script type="module" nonce="{{ request.csp_nonce }}">
+import { renderSelect } from "{% static 'select.js' %}";
 renderSelect({
     serverSecretB64: "{{ server_secret_b64 }}",
     anon_id: "{{ anon_id }}", 
@@ -57,6 +56,5 @@ renderSelect({
     matching_choices_api: "{% url 'matching:choices_api' %}",
     matching_select_api: "{% url 'matching:select_api' %}",
 });
-{% endscript %}
-
+</script>
 {% endblock %}

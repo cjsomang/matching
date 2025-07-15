@@ -53,8 +53,8 @@
 
 {% block script %}
 
-{% script type="module" %}
-import { renderInfo } from "/static/info.js";
+<script type="module" nonce="{{ request.csp_nonce }}">
+import { renderInfo } from "{% static 'info.js' %}";
 renderInfo({
     serverSecretB64: "{{ server_secret_b64 }}",
     anon_id: "{{ anon_id }}", 
@@ -65,6 +65,6 @@ renderInfo({
     org_json: "{% static 'data/orgs.json' %}",
     age_json: "{% static 'data/ages.json' %}",
 });
-{% endscript %}
+</script>
 
 {% endblock %}

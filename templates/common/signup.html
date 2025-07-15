@@ -91,14 +91,14 @@
 {% endblock %}
 {% block script %}
 
-{% script type="module" %}
-import { renderSignup } from "/static/signup.js";
+<script type="module" nonce="{{ request.csp_nonce }}">
+import { renderSignup } from "{% static 'signup.js' %}";
 renderSignup({
     serverSecretB64: "{{ server_secret_b64 }}",
     userSaltB64: "{{ user_salt }}",
     signupUrl: "{% url 'common:signup' %}",
     loginUrl: "{% url 'common:login' %}",
 });
-{% endscript %}
+</script>
 
 {% endblock %}
